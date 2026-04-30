@@ -39,6 +39,7 @@ dist-ssr
 
 # Trae rules (local only)
 .trae/
+docs/
 
 # Misc
 *.swp
