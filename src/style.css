@@ -1,0 +1,155 @@
+/* Notion + Linear 风格的设计系统 */
+:root {
+  /* 主色调 */
+  --primary: #0EA5E9;
+  --primary-hover: #0284C7;
+  
+  /* 背景色 - 暗色主题默认 */
+  --bg-page: #0B1120;
+  --bg-sidebar: #0F172A;
+  --bg-input: #1E293B;
+  --bg-hover: #1E293B;
+  --selected-bg: #1E293B;
+  
+  /* 文字色 */
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  
+  /* 边框色 */
+  --border: #1E293B;
+  
+  /* 状态色 */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+}
+
+/* 全局重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 滚动条样式 - 隐藏但可滚动 */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 为了防止布局跳动，可以使用 scrollbar-gutter */
+* {
+  scrollbar-gutter: stable;
+}
+
+/* 通用按钮样式 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--bg-input);
+}
+
+.btn-icon {
+  padding: 6px;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--text-muted);
+}
+
+.btn-icon:hover {
+  background-color: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+/* 通用输入框样式 */
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--primary);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+/* 通用容器 */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* 主题切换过渡动画 */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* 固定定位的下拉菜单容器 */
+.menu-portal {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.menu-portal > * {
+  pointer-events: auto;
+}
