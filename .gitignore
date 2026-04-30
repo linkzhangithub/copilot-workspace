@@ -37,6 +37,9 @@ dist
 dist-ssr
 *.local
 
+# Trae rules (local only)
+.trae/
+
 # Misc
 *.swp
 *.swo
