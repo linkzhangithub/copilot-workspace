@@ -340,33 +340,73 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
-  border: 1px dashed var(--border);
-  background-color: transparent;
+  padding: 12px 20px;
+  border: 2px dashed var(--border);
+  background: linear-gradient(
+    135deg,
+    var(--bg-hover) 0%,
+    var(--bg-primary) 100%
+  );
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  border-radius: 12px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.new-project-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
 }
 
 .new-project-btn:hover {
-  background-color: var(--bg-hover);
   border-color: var(--primary);
-  color: var(--primary);
   border-style: solid;
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+}
+
+.new-project-btn:hover::before {
+  left: 100%;
+}
+
+.new-project-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
 }
 
 .new-project-input {
-  padding: 4px 0;
+  padding: 8px 0;
 }
 
 .new-project-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(
+    135deg,
+    var(--bg-hover) 0%,
+    var(--bg-primary) 100%
+  );
+  border: 2px solid var(--border);
+  border-radius: 12px;
 }
 
 .new-project-actions {
@@ -376,17 +416,28 @@ onUnmounted(() => {
 }
 
 .action-btn {
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   border: none;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .action-btn.confirm {
-  background-color: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, #0284c7 100%);
   color: white;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+}
+
+.action-btn.confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
+}
+
+.action-btn.confirm:active {
+  transform: translateY(0);
 }
 
 .action-btn.confirm:hover {
@@ -394,12 +445,14 @@ onUnmounted(() => {
 }
 
 .action-btn.cancel {
-  background-color: var(--bg-input);
+  background-color: transparent;
   color: var(--text-secondary);
+  border: 1px solid var(--border);
 }
 
 .action-btn.cancel:hover {
   background-color: var(--bg-hover);
+  border-color: var(--text-muted);
 }
 
 .projects {
