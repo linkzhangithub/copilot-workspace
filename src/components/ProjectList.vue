@@ -240,7 +240,7 @@ onUnmounted(() => {
         </div>
 
         <!-- 显示模式 -->
-        <template>
+        <template v-else>
           <!-- 文档图标 -->
           <Icon name="FileText" :size="16" class="doc-icon" />
 
