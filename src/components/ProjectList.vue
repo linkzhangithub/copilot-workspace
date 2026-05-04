@@ -246,10 +246,21 @@ onUnmounted(() => {
 
           <span class="project-name">{{ project.name }}</span>
 
-          <!-- 更多按钮 -->
-          <div class="menu-wrapper" @click.stop>
-            <button class="menu-btn" @click="toggleMenu(project, $event)">
-              <Icon name="MoreVertical" :size="14" />
+          <!-- 操作按钮 -->
+          <div class="action-buttons" @click.stop>
+            <button
+              class="action-btn edit-btn"
+              @click="startEdit(project)"
+              title="重命名"
+            >
+              <Icon name="Pencil" :size="14" />
+            </button>
+            <button
+              class="action-btn delete-btn"
+              @click="deleteProject(project.id, $event)"
+              title="删除项目"
+            >
+              <Icon name="Trash2" :size="14" />
             </button>
           </div>
         </template>
@@ -449,12 +460,20 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-.menu-wrapper {
-  position: relative;
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
-.menu-btn {
+.project-item:hover .action-buttons {
+  opacity: 1;
+}
+
+.action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -465,8 +484,19 @@ onUnmounted(() => {
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
-  opacity: 0;
   transition: all 0.15s ease;
+}
+
+.action-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.edit-btn:hover {
+  color: var(--primary);
+}
+
+.delete-btn:hover {
+  color: #ef4444;
 }
 
 .project-item:hover .menu-btn,
