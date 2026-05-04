@@ -2,7 +2,14 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import Input from "./Input.vue";
 import Icon from "./Icon.vue";
-import { Plus } from "lucide-vue-next";
+import {
+  Plus,
+  FileText,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  FolderOpen,
+} from "lucide-vue-next";
 
 const props = defineProps({
   projects: {
@@ -179,28 +186,38 @@ onUnmounted(() => {
 
 <template>
   <div class="project-list">
-    <!-- 新建项目按钮 -->
-    <div v-if="!showNewProject">
-      <button class="new-project-btn" @click="startNewProject">
-        <Icon name="Plus" :size="16" />
-        <span>新建项目</span>
-      </button>
+    <!-- 标题区域 -->
+    <div class="section-header">
+      <h3 class="section-title">
+        <Icon name="FolderOpen" :size="16" />
+        <span>我的项目</span>
+      </h3>
     </div>
 
-    <!-- 新建项目输入框 -->
-    <div v-else class="new-project-input">
-      <div class="new-project-form">
-        <Input
-          v-model="newProjectName"
-          placeholder="项目名称"
-          @keyup.enter="addProject"
-          @keyup.esc="cancelNewProject"
-        />
-        <div class="new-project-actions">
-          <button class="action-btn confirm" @click="addProject">确认</button>
-          <button class="action-btn cancel" @click="cancelNewProject">
-            取消
-          </button>
+    <!-- 新建项目按钮 -->
+    <div class="new-project-section">
+      <div v-if="!showNewProject">
+        <button class="new-project-btn" @click="startNewProject">
+          <Icon name="Plus" :size="16" />
+          <span>新建项目</span>
+        </button>
+      </div>
+
+      <!-- 新建项目输入框 -->
+      <div v-else class="new-project-input">
+        <div class="new-project-form">
+          <Input
+            v-model="newProjectName"
+            placeholder="项目名称"
+            @keyup.enter="addProject"
+            @keyup.esc="cancelNewProject"
+          />
+          <div class="new-project-actions">
+            <button class="action-btn confirm" @click="addProject">确认</button>
+            <button class="action-btn cancel" @click="cancelNewProject">
+              取消
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -223,49 +240,16 @@ onUnmounted(() => {
         </div>
 
         <!-- 显示模式 -->
-        <template v-else>
+        <template>
           <!-- 文档图标 -->
-          <svg
-            class="doc-icon"
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-            ></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-            <polyline points="10 9 9 9 8 9"></polyline>
-          </svg>
+          <Icon name="FileText" :size="16" class="doc-icon" />
 
           <span class="project-name">{{ project.name }}</span>
 
           <!-- 更多按钮 -->
           <div class="menu-wrapper" @click.stop>
             <button class="menu-btn" @click="toggleMenu(project, $event)">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="1"></circle>
-                <circle cx="12" cy="5" r="1"></circle>
-                <circle cx="12" cy="19" r="1"></circle>
-              </svg>
+              <Icon name="MoreVertical" :size="14" />
             </button>
           </div>
         </template>
@@ -280,46 +264,14 @@ onUnmounted(() => {
           :style="{ left: `${menuPosition.x}px`, top: `${menuPosition.y}px` }"
         >
           <button class="menu-item" @click.stop="startEdit(currentMenuProject)">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path
-                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-              ></path>
-              <path
-                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-              ></path>
-            </svg>
+            <Icon name="Pencil" :size="14" />
             <span>重命名</span>
           </button>
           <button
             class="menu-item delete"
             @click="deleteProject(showMenuId, $event)"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path
-                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-              ></path>
-            </svg>
+            <Icon name="Trash2" :size="14" />
             <span>删除</span>
           </button>
         </div>
@@ -335,60 +287,48 @@ onUnmounted(() => {
   gap: 4px;
 }
 
+.section-header {
+  padding: 8px 4px 12px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.new-project-section {
+  padding: 0 4px 12px;
+}
+
 .new-project-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 20px;
-  border: 2px dashed var(--border);
-  background: linear-gradient(
-    135deg,
-    var(--bg-hover) 0%,
-    var(--bg-primary) 100%
-  );
+  padding: 10px 16px;
+  border: 1px dashed var(--border);
+  background-color: transparent;
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  border-radius: 12px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  transition: all 0.2s ease;
   width: 100%;
-  position: relative;
-  overflow: hidden;
-}
-
-.new-project-btn::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-  transition: left 0.5s ease;
 }
 
 .new-project-btn:hover {
   border-color: var(--primary);
-  border-style: solid;
   color: var(--primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
-}
-
-.new-project-btn:hover::before {
-  left: 100%;
-}
-
-.new-project-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
+  border-style: solid;
+  background-color: var(--bg-hover);
 }
 
 .new-project-input {
