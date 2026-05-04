@@ -1,219 +1,210 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
-import Input from "./Input.vue";
-import Icon from "./Icon.vue";
-import {
-  Plus,
-  FileText,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  FolderOpen,
-} from "lucide-vue-next";
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import Input from './Input.vue'
+import Icon from './Icon.vue'
 
 const props = defineProps({
   projects: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   searchKeyword: {
     type: String,
-    default: "",
+    default: ''
   },
   selectedId: {
     type: [Number, null],
-    default: null,
-  },
-});
+    default: null
+  }
+})
 
 const emit = defineEmits([
-  "project-click",
-  "add-project",
-  "update-project",
-  "delete-project",
-]);
+  'project-click',
+  'add-project',
+  'update-project',
+  'delete-project'
+])
 
 // 状态
-const showNewProject = ref(false);
-const showMenu = ref(false);
-const showItemMenuId = ref(null);
-const itemMenuPosition = ref({ x: 0, y: 0 });
-const newProjectName = ref("");
-const editingId = ref(null);
-const editingName = ref("");
-const showMenuId = ref(null);
-const currentMenuProject = ref(null);
-const menuPosition = ref({ x: 0, y: 0 });
-const menuRef = ref(null);
+const showNewProject = ref(false)
+const showItemMenuId = ref(null)
+const itemMenuPosition = ref({ x: 0, y: 0 })
+const newProjectName = ref('')
+const editingId = ref(null)
+const editingName = ref('')
+const menuRef = ref(null)
 
+// 过滤文章列表
 const filteredProjects = computed(() => {
-  if (!props.searchKeyword.trim()) return props.projects;
-  const keyword = props.searchKeyword.toLowerCase();
-  return props.projects.filter((p) => p.name.toLowerCase().includes(keyword));
-});
+  if (!props.searchKeyword.trim()) return props.projects
+  const keyword = props.searchKeyword.toLowerCase()
+  return props.projects.filter((p) => p.name.toLowerCase().includes(keyword))
+})
 
 // 重置所有编辑状态
 const resetEditStates = () => {
-  editingId.value = null;
-  showMenuId.value = null;
-  currentMenuProject.value = null;
+  editingId.value = null
+  showItemMenuId.value = null
   if (showNewProject.value) {
-    showNewProject.value = false;
-    newProjectName.value = "";
+    showNewProject.value = false
+    newProjectName.value = ''
   }
-};
+}
 
 // 点击外部区域处理
 const handleClickOutside = (event) => {
-  // 检查是否点击在菜单区域
   if (menuRef.value && menuRef.value.contains(event.target)) {
-    return;
+    return
   }
 
-  // 检查是否点击在新建文章按钮上
-  const newProjectBtn = event.target.closest(".new-project-btn");
+  const newProjectBtn = event.target.closest('.new-project-btn')
   if (newProjectBtn && !showNewProject.value) {
-    return;
+    return
   }
 
-  // 检查是否点击在新建项目输入框上
   if (showNewProject.value) {
-    const newProjectInput = event.target.closest(".new-project-input");
+    const newProjectInput = event.target.closest('.new-project-input')
     if (newProjectInput) {
-      return;
+      return
     }
   }
 
-  // 检查是否点击在更多按钮上
-  const menuBtn = event.target.closest(".menu-btn");
+  const menuBtn = event.target.closest('.item-menu-btn')
   if (menuBtn) {
-    return;
+    return
   }
 
-  resetEditStates();
-};
+  resetEditStates()
+}
 
 // Esc 键处理
 const handleEscKey = (event) => {
-  if (event.key === "Escape") {
-    resetEditStates();
+  if (event.key === 'Escape') {
+    resetEditStates()
   }
-};
+}
 
-// 添加新项目
+// 添加新文章
 const addProject = () => {
   if (!newProjectName.value.trim()) {
-    showNewProject.value = false;
-    return;
+    showNewProject.value = false
+    return
   }
-  emit("add-project", newProjectName.value.trim());
-  newProjectName.value = "";
-  showNewProject.value = false;
-};
+  emit('add-project', newProjectName.value.trim())
+  newProjectName.value = ''
+  showNewProject.value = false
+}
 
 const cancelNewProject = () => {
-  showNewProject.value = false;
-  newProjectName.value = "";
-};
+  showNewProject.value = false
+  newProjectName.value = ''
+}
 
 const startNewProject = (e) => {
-  e.stopPropagation();
-  showNewProject.value = true;
-};
+  e.stopPropagation()
+  showNewProject.value = true
+}
 
-// 编辑项目
+// 编辑文章
 const startEdit = (project) => {
-  editingId.value = project.id;
-  editingName.value = project.name;
-  showMenuId.value = null;
-};
+  editingId.value = project.id
+  editingName.value = project.name
+  showItemMenuId.value = null
+}
 
 const saveEdit = () => {
-  const project = props.projects.find((p) => p.id === editingId.value);
+  const project = props.projects.find((p) => p.id === editingId.value)
   if (project && editingName.value.trim()) {
-    emit("update-project", project.id, editingName.value.trim());
+    emit('update-project', project.id, editingName.value.trim())
   }
-  editingId.value = null;
-};
+  editingId.value = null
+}
 
 const cancelEdit = () => {
-  editingId.value = null;
-};
+  editingId.value = null
+}
 
 // 删除文章
 const deleteProject = (id, event) => {
-  event.stopPropagation();
-  if (confirm("确定要删除这篇文章吗？")) {
-    emit("delete-project", id);
-    showMenuId.value = null;
+  event.stopPropagation()
+  if (confirm('确定要删除这篇文章吗？')) {
+    emit('delete-project', id)
+    showItemMenuId.value = null
   }
-};
+}
 
-// 项目的三点菜单
+// 文章的三点菜单
 const toggleItemMenu = (project, event) => {
   if (showItemMenuId.value === project.id) {
-    showItemMenuId.value = null;
+    showItemMenuId.value = null
   } else {
-    showItemMenuId.value = project.id;
-    // 计算菜单位置
-    const rect = event.target.getBoundingClientRect();
+    showItemMenuId.value = project.id
+    const rect = event.target.getBoundingClientRect()
     itemMenuPosition.value = {
-      x: rect.right - 120,
-      y: rect.bottom + 4,
-    };
+      x: rect.right - 140,
+      y: rect.bottom + 4
+    }
   }
-};
+}
 
-// 点击项目
+// 点击文章
 const handleProjectClick = (project) => {
   if (showItemMenuId.value !== null || editingId.value !== null) {
-    resetEditStates();
+    resetEditStates()
   }
-  emit("project-click", project);
-};
+  emit('project-click', project)
+}
 
 onMounted(() => {
-  document.addEventListener("click", handleClickOutside);
-  document.addEventListener("keydown", handleEscKey);
-});
+  document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleEscKey)
+})
 
 onUnmounted(() => {
-  document.removeEventListener("click", handleClickOutside);
-  document.removeEventListener("keydown", handleEscKey);
-});
+  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleEscKey)
+})
 </script>
 
 <template>
   <div class="project-list">
-    <!-- 新建文章按钮 -->
+    <!-- 新建文章区域 -->
     <div class="new-project-section">
-      <div v-if="!showNewProject">
-        <button class="new-project-btn" @click="startNewProject">
-          <Icon name="Plus" :size="16" />
-          <span>新建文章</span>
-        </button>
-      </div>
+      <button
+        v-if="!showNewProject"
+        class="new-project-btn"
+        @click="startNewProject"
+      >
+        <Icon name="Plus" :size="18" />
+        <span>新建文章</span>
+      </button>
 
       <!-- 新建文章输入框 -->
       <div v-else class="new-project-input">
-        <div class="new-project-form">
-          <Input
-            v-model="newProjectName"
-            placeholder="新建文章"
-            @keyup.enter="addProject"
-            @keyup.esc="cancelNewProject"
-          />
-          <div class="new-project-actions">
-            <button class="action-btn confirm" @click="addProject">确认</button>
-            <button class="action-btn cancel" @click="cancelNewProject">
-              取消
-            </button>
-          </div>
+        <Input
+          v-model="newProjectName"
+          placeholder="输入文章标题..."
+          @keyup.enter="addProject"
+          @keyup.esc="cancelNewProject"
+          autofocus
+        />
+        <div class="new-project-actions">
+          <button class="action-btn confirm" @click="addProject">
+            <Icon name="Check" :size="14" />
+            创建
+          </button>
+          <button class="action-btn cancel" @click="cancelNewProject">
+            <Icon name="X" :size="14" />
+            取消
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- 项目列表 -->
+    <!-- 分隔线 -->
+    <div class="divider"></div>
+
+    <!-- 文章列表 -->
     <div class="projects">
       <div
         v-for="project in filteredProjects"
@@ -227,154 +218,84 @@ onUnmounted(() => {
             v-model="editingName"
             @keyup.enter="saveEdit"
             @keyup.esc="cancelEdit"
+            autofocus
           />
         </div>
 
         <!-- 显示模式 -->
         <template v-else>
-          <!-- 文档图标 -->
-          <Icon name="FileText" :size="16" class="doc-icon" />
+          <!-- 文章图标 -->
+          <div class="item-icon">
+            <Icon name="FileText" :size="18" />
+          </div>
 
-          <span class="project-name">{{ project.name }}</span>
+          <!-- 文章名称 -->
+          <div class="item-content">
+            <span class="item-title">{{ project.name }}</span>
+          </div>
 
-          <!-- 三点菜单 -->
+          <!-- 三点菜单按钮 -->
           <button
             class="item-menu-btn"
             @click.stop="toggleItemMenu(project, $event)"
           >
-            <Icon name="MoreVertical" :size="14" />
+            <Icon name="MoreVertical" :size="16" />
           </button>
-
-          <!-- 菜单浮窗 -->
-          <Transition name="menu-fade">
-            <div
-              v-if="showItemMenuId === project.id"
-              class="item-menu-dropdown"
-              :style="{
-                left: `${itemMenuPosition.x}px`,
-                top: `${itemMenuPosition.y}px`,
-              }"
-            >
-              <button class="menu-item" @click.stop="startEdit(project)">
-                <Icon name="Pencil" :size="14" />
-                <span>重命名</span>
-              </button>
-              <button
-                class="menu-item delete"
-                @click.stop="deleteProject(project.id, $event)"
-              >
-                <Icon name="Trash2" :size="14" />
-                <span>删除</span>
-              </button>
-            </div>
-          </Transition>
         </template>
       </div>
     </div>
+
+    <!-- 菜单浮层 - 独立渲染 -->
+    <Transition name="menu-fade">
+      <div
+        v-if="showItemMenuId !== null"
+        ref="menuRef"
+        class="item-menu-dropdown"
+        :style="{
+          left: `${itemMenuPosition.x}px`,
+          top: `${itemMenuPosition.y}px`
+        }"
+      >
+        <button
+          class="menu-item"
+          @click.stop="startEdit(projects.find(p => p.id === showItemMenuId))"
+        >
+          <Icon name="Pencil" :size="16" />
+          <span>重命名</span>
+        </button>
+        <button
+          class="menu-item danger"
+          @click.stop="deleteProject(showItemMenuId, $event)"
+        >
+          <Icon name="Trash2" :size="16" />
+          <span>删除</span>
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 .menu-fade-enter-active,
 .menu-fade-leave-active {
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .menu-fade-enter-from,
 .menu-fade-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-8px) scale(0.95);
 }
 
 .project-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  height: 100%;
 }
 
-.section-header {
-  padding: 8px 4px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0;
-}
-
-.menu-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background-color: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.menu-trigger:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.menu-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  min-width: 120px;
-  background-color: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 100;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  background-color: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.menu-item:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.menu-item.delete:hover {
-  color: #ef4444;
-  background-color: #fef2f2;
-}
-
-:deep(.dark) .menu-item.delete:hover {
-  background-color: #450a0a;
-}
-
+/* 新建文章区域 */
 .new-project-section {
-  padding: 0 4px 12px;
+  padding: 0 8px 12px;
 }
 
 .new-project-btn {
@@ -382,41 +303,33 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  width: 100%;
   padding: 10px 16px;
-  border: 1px dashed var(--border);
+  border: 1.5px dashed var(--border);
   background-color: transparent;
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  width: 100%;
+  border-radius: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .new-project-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
-  border-style: solid;
-  background-color: var(--bg-hover);
+  background-color: var(--primary);
+  background-color: rgba(14, 165, 233, 0.1);
 }
 
 .new-project-input {
-  padding: 8px 0;
-}
-
-.new-project-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  background: linear-gradient(
-    135deg,
-    var(--bg-hover) 0%,
-    var(--bg-primary) 100%
-  );
-  border: 2px solid var(--border);
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg-input);
   border-radius: 12px;
+  border: 1px solid var(--border);
 }
 
 .new-project-actions {
@@ -425,41 +338,52 @@ onUnmounted(() => {
   justify-content: flex-end;
 }
 
-.new-project-actions .action-btn {
-  padding: 6px 14px;
-  border-radius: 6px;
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 500;
   cursor: pointer;
   border: none;
   transition: all 0.15s ease;
 }
 
-.new-project-actions .action-btn.confirm {
+.action-btn.confirm {
   background-color: var(--primary);
   color: white;
 }
 
-.new-project-actions .action-btn.confirm:hover {
-  background-color: var(--primary);
+.action-btn.confirm:hover {
   filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 
-.new-project-actions .action-btn.cancel {
-  background-color: var(--bg-input);
+.action-btn.cancel {
+  background-color: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border);
 }
 
-.new-project-actions .action-btn.cancel:hover {
+.action-btn.cancel:hover {
   background-color: var(--bg-hover);
 }
 
+/* 分隔线 */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 8px 12px;
+}
+
+/* 文章列表 */
 .projects {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 8px;
+  gap: 4px;
+  padding: 0 4px;
   overflow-y: auto;
   flex: 1;
 }
@@ -469,11 +393,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
-  border-left: 2px solid transparent;
+  transition: all 0.15s ease;
 }
 
 .project-item:hover {
@@ -481,94 +404,110 @@ onUnmounted(() => {
 }
 
 .project-item.selected {
-  background-color: var(--selected-bg);
-  border-left-color: var(--primary);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 165, 233, 0.15) 0%,
+    rgba(14, 165, 233, 0.08) 100%
+  );
+  border-left: 3px solid var(--primary);
 }
 
-.project-item.selected .doc-icon {
+/* 文章图标 */
+.item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.project-item.selected .item-icon {
+  background: rgba(14, 165, 233, 0.2);
   color: var(--primary);
 }
 
-.project-item.selected .project-name {
-  color: var(--text-primary);
-  font-weight: 500;
+/* 文章内容 */
+.item-content {
+  flex: 1;
+  min-width: 0;
 }
 
-.doc-icon {
-  color: var(--text-muted);
-  flex-shrink: 0;
+.item-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
-.project-name {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.project-item:hover .item-title,
+.project-item.selected .item-title {
+  color: var(--text-primary);
 }
 
+/* 三点菜单按钮 */
 .item-menu-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
   background-color: transparent;
-  color: #9ca3af;
+  color: var(--text-muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.15s ease;
   flex-shrink: 0;
-  margin-left: auto;
+  opacity: 0;
+}
+
+.project-item:hover .item-menu-btn,
+.item-menu-btn:focus {
+  opacity: 1;
 }
 
 .item-menu-btn:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-input);
   color: var(--text-primary);
 }
 
+/* 菜单浮层 */
 .item-menu-dropdown {
   position: fixed;
-  min-width: 120px;
-  background-color: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 1000;
-}
-
-.menu-btn:hover {
-  background-color: var(--bg-input);
-  color: var(--text-secondary);
-}
-
-.menu-dropdown {
-  position: absolute;
-  min-width: 140px;
+  min-width: 150px;
   background-color: var(--bg-sidebar);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  z-index: 9999;
+  padding: 6px;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 12px;
   border: none;
   background-color: transparent;
   color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: background-color 0.15s ease;
+  border-radius: 8px;
+  transition: all 0.15s ease;
 }
 
 .menu-item:hover {
@@ -576,11 +515,16 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-.menu-item.delete {
+.menu-item.danger {
   color: var(--danger);
 }
 
-.menu-item.delete:hover {
+.menu-item.danger:hover {
   background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* 编辑模式 */
+.edit-mode {
+  flex: 1;
 }
 </style>
