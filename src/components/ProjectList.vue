@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import Input from "./Input.vue";
+import Icon from "./Icon.vue";
+import { Plus } from "lucide-vue-next";
 
 const props = defineProps({
   projects: {
@@ -104,6 +106,10 @@ const cancelNewProject = () => {
   newProjectName.value = "";
 };
 
+const startNewProject = () => {
+  showNewProject.value = true;
+};
+
 // 编辑项目
 const startEdit = (project) => {
   editingId.value = project.id;
@@ -174,21 +180,8 @@ onUnmounted(() => {
   <div class="project-list">
     <!-- 新建项目按钮 -->
     <div v-if="!showNewProject">
-      <button class="new-project-btn" @click="showNewProject = true">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
+      <button class="new-project-btn" @click="startNewProject">
+        <Icon name="Plus" :size="16" />
         <span>新建项目</span>
       </button>
     </div>
@@ -344,21 +337,25 @@ onUnmounted(() => {
 .new-project-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  background-color: var(--bg-input);
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px dashed var(--border);
+  background-color: transparent;
   color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s ease;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  width: 100%;
 }
 
 .new-project-btn:hover {
   background-color: var(--bg-hover);
-  border-color: var(--text-muted);
-  color: var(--text-primary);
+  border-color: var(--primary);
+  color: var(--primary);
+  border-style: solid;
 }
 
 .new-project-input {
