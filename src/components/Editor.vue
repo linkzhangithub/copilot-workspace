@@ -2,6 +2,8 @@
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from "vue";
 import OutlineEditor from "./OutlineEditor.vue";
 import ContentGenerator from "./ContentGenerator.vue";
+import Icon from "./Icon.vue";
+import { Sparkles, Loader2, Edit3 } from "lucide-vue-next";
 
 const props = defineProps({
   project: {
@@ -183,13 +185,14 @@ onUnmounted(() => {
     <div class="editor-content">
       <!-- 错误提示 -->
       <div v-if="error" class="error-message">
-        {{ error }}
+        <Icon name="AlertCircle" :size="18" />
+        <span>{{ error }}</span>
       </div>
 
       <!-- 项目主题区 -->
       <div class="topic-section">
         <div class="topic-wrapper">
-          <!-- 标题容器 - 一直有背景色，像 outline-item 一样 -->
+          <!-- 标题容器 -->
           <div
             class="title-wrapper"
             ref="editTitleWrapper"
@@ -218,24 +221,7 @@ onUnmounted(() => {
                 @click.stop="startEditTitle"
                 title="编辑标题"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                  ></path>
-                  <path
-                    d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                  ></path>
-                </svg>
+                <Icon name="Edit3" :size="16" />
               </button>
             </div>
           </div>
@@ -244,43 +230,8 @@ onUnmounted(() => {
             @click="generateOutline"
             :disabled="loading"
           >
-            <svg
-              v-if="!loading"
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polygon
-                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-              ></polygon>
-            </svg>
-            <svg
-              v-else
-              class="spinner"
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-                stroke-dasharray="40 20"
-                stroke-dashoffset="0"
-              ></circle>
-            </svg>
+            <Icon v-if="!loading" name="Sparkles" :size="18" />
+            <Icon v-else name="Loader2" :size="18" class="spinner" />
             <span>生成大纲</span>
           </button>
         </div>
@@ -314,51 +265,56 @@ onUnmounted(() => {
 }
 
 .editor-content {
-  max-width: 800px;
+  max-width: 850px;
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 48px 32px;
 }
 
 .error-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid var(--danger);
   color: var(--danger);
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-bottom: 24px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  margin-bottom: 32px;
   font-size: 14px;
+  font-weight: 500;
 }
 
 /* 项目主题区 */
 .topic-section {
-  margin-bottom: 32px;
+  margin-bottom: 40px;
 }
 
 .topic-wrapper {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: 14px;
+  align-items: flex-end;
 }
 
-/* 标题容器 - 一直有背景色，像 outline-item 一样 */
+/* 标题容器 */
 .title-wrapper {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex: 1;
   cursor: text;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
   gap: 12px;
-  background-color: var(--bg-hover);
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
+  background-color: var(--bg-sidebar);
+  border: 2px solid var(--border);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* hover 时背景加深 */
 .title-wrapper:hover {
-  background-color: var(--bg-input);
-  border-color: var(--border);
+  background-color: var(--bg-hover);
+  border-color: var(--text-muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* 编辑按钮区域 */
@@ -368,7 +324,7 @@ onUnmounted(() => {
   gap: 4px;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease;
 }
 
 .title-wrapper:hover .topic-right {
@@ -384,13 +340,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
   background-color: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
@@ -402,55 +358,67 @@ onUnmounted(() => {
 
 .project-title {
   flex: 1;
-  font-size: 32px;
-  font-weight: 600;
+  font-size: 34px;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  line-height: 1.2;
 }
 
 .edit-title-input {
   width: 100%;
   padding: 6px 10px;
   border: 2px solid var(--primary);
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: var(--bg-input);
   color: var(--text-primary);
-  font-size: 32px;
-  font-weight: 600;
+  font-size: 34px;
+  font-weight: 700;
   outline: none;
+  line-height: 1.2;
 }
 
 .topic-hint {
-  margin: 8px 0 0 0;
+  margin: 12px 0 0 0;
   font-size: 14px;
   color: var(--text-muted);
+  line-height: 1.6;
 }
 
 .generate-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 12px 20px;
   border: none;
   background-color: var(--primary);
   color: white;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 12px;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
-  height: 40px;
+  height: 52px;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
 }
 
 .generate-btn:hover:not(:disabled) {
   background-color: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35);
+}
+
+.generate-btn:active {
+  transform: translateY(0);
 }
 
 .generate-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .spinner {

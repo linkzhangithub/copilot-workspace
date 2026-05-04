@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from "vue";
 import Icon from "./Icon.vue";
-import { Play, Loader, Wand2, ZoomIn, ZoomOut, RotateCcw, FileText } from "lucide-vue-next";
+import { Play, Loader2, Sparkles, ZoomIn, ZoomOut, RotateCcw, FileText } from "lucide-vue-next";
 
 const props = defineProps({
   outline: {
@@ -167,7 +167,10 @@ const stopDrag = () => {
     <div class="sections-list">
       <div v-for="(section, index) in outline" :key="section.id || index" class="section-item">
         <div class="section-header">
-          <h3 class="section-title">{{ cleanTitle(section.title) }}</h3>
+          <div class="header-left">
+            <div class="section-number">{{ index + 1 }}</div>
+            <h3 class="section-title">{{ cleanTitle(section.title) }}</h3>
+          </div>
           <div class="header-actions">
             <button 
               v-if="!section.content && generatingIndex !== index" 
@@ -175,15 +178,15 @@ const stopDrag = () => {
               @click="generateSection(index)"
             >
               <Icon name="Play" :size="16" />
-              生成
+              <span class="btn-label">生成内容</span>
             </button>
             <button 
               v-else-if="generatingIndex === index" 
               class="action-btn generating-btn" 
               disabled
             >
-              <Icon name="Loader" :size="16" class="spinner" />
-              生成中...
+              <Icon name="Loader2" :size="16" class="spinner" />
+              <span class="btn-label">生成中...</span>
             </button>
             <template v-else-if="section.content">
               <button 
@@ -192,7 +195,7 @@ const stopDrag = () => {
                 @click="rewriteSection(index, 'polish')" 
                 title="润色优化内容"
               >
-                <Icon name="Wand2" :size="18" />
+                <Icon name="Sparkles" :size="16" />
                 <span class="btn-label">润色</span>
               </button>
               <button 
@@ -200,7 +203,7 @@ const stopDrag = () => {
                 class="action-btn operating-btn" 
                 disabled
               >
-                <Icon name="Loader" :size="16" class="spinner" />
+                <Icon name="Loader2" :size="16" class="spinner" />
                 <span class="btn-label">{{ getOperationDesc(currentOperation) }}</span>
               </button>
               <button 
@@ -209,7 +212,7 @@ const stopDrag = () => {
                 @click="rewriteSection(index, 'expand')" 
                 title="扩写丰富内容"
               >
-                <Icon name="ZoomIn" :size="18" />
+                <Icon name="ZoomIn" :size="16" />
                 <span class="btn-label">扩写</span>
               </button>
               <button 
@@ -218,7 +221,7 @@ const stopDrag = () => {
                 @click="rewriteSection(index, 'shorten')" 
                 title="缩写精简内容"
               >
-                <Icon name="ZoomOut" :size="18" />
+                <Icon name="ZoomOut" :size="16" />
                 <span class="btn-label">缩写</span>
               </button>
               <button 
@@ -227,8 +230,7 @@ const stopDrag = () => {
                 @click="generateSection(index)" 
                 title="重新生成内容"
               >
-                <Icon name="RotateCcw" :size="18" />
-                <span class="btn-label">重新生成</span>
+                <Icon name="RotateCcw" :size="16" />
               </button>
             </template>
           </div>
@@ -240,20 +242,17 @@ const stopDrag = () => {
               @input="(e) => updateSectionContent(index, e.target.value)" 
               class="content-textarea" 
               placeholder="该章节暂无内容..."
-              :style="{ height: (textareaHeights[index] || 200) + 'px' }"
+              :style="{ height: (textareaHeights[index] || 240) + 'px' }"
             ></textarea>
-            <!-- 自定义拖拽手柄 -->
-            <div class="custom-resizer" @mousedown="startDrag($event, index)">
-              <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 16 16">
-                <polygon points="16,16 16,6 6,16" fill="#6b7280"/>
-              </svg>
-            </div>
           </div>
           <div v-else class="content-placeholder">
             <div class="placeholder-icon">
               <Icon name="FileText" :size="48" />
             </div>
-            <p class="placeholder-text">点击「生成」按钮来创作此章节</p>
+            <div class="placeholder-text">
+              <h4>开始创作这个章节</h4>
+              <p>点击上方的「生成内容」按钮，让 AI 帮你创作</p>
+            </div>
           </div>
         </div>
       </div>
@@ -269,7 +268,7 @@ const stopDrag = () => {
 .sections-list {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 32px;
 }
 
 .section-item {
@@ -280,14 +279,36 @@ const stopDrag = () => {
 
 .section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.section-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 .section-title {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
   white-space: nowrap;
@@ -298,6 +319,8 @@ const stopDrag = () => {
 .header-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   flex-shrink: 0;
 }
 
@@ -306,47 +329,28 @@ const stopDrag = () => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  background-color: var(--bg-hover);
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  background-color: var(--bg-sidebar);
   color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 10px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.action-btn::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 50%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
 .action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-}
-
-.action-btn:hover::before {
-  opacity: 1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .action-btn:active {
-  transform: translateY(0) scale(0.98);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transform: translateY(0);
 }
 
 .action-btn:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
@@ -365,7 +369,7 @@ const stopDrag = () => {
 .generate-btn:hover {
   background-color: var(--primary);
   color: white;
-  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 6px 16px rgba(14, 165, 233, 0.3);
 }
 
 /* 生成中按钮 */
@@ -386,7 +390,7 @@ const stopDrag = () => {
 .polish-btn:hover {
   background-color: #10b981;
   color: white;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
 }
 
 /* 扩写按钮 */
@@ -399,7 +403,7 @@ const stopDrag = () => {
 .expand-btn:hover {
   background-color: #8b5cf6;
   color: white;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3);
 }
 
 /* 缩写按钮 */
@@ -412,7 +416,7 @@ const stopDrag = () => {
 .shorten-btn:hover {
   background-color: #f59e0b;
   color: white;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
 }
 
 /* 重新生成按钮 */
@@ -420,17 +424,18 @@ const stopDrag = () => {
   border-color: #6b7280;
   color: #6b7280;
   background-color: transparent;
+  padding: 10px 12px;
 }
 
 .regenerate-btn:hover {
   background-color: #6b7280;
   color: white;
-  box-shadow: 0 4px 16px rgba(107, 114, 128, 0.35);
+  box-shadow: 0 6px 16px rgba(107, 114, 128, 0.3);
 }
 
 /* Loading spinner */
 .spinner {
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -443,7 +448,7 @@ const stopDrag = () => {
 }
 
 .section-content {
-  padding-left: 20px;
+  padding-left: 48px;
 }
 
 /* textarea 容器 */
@@ -453,20 +458,19 @@ const stopDrag = () => {
 
 .content-textarea {
   width: 100%;
-  min-height: 200px;
-  padding: 16px;
-  padding-bottom: 30px;
-  border: 1px solid var(--border);
-  background-color: var(--bg-input);
+  min-height: 240px;
+  padding: 18px 20px;
+  border: 2px solid var(--border);
+  background-color: var(--bg-sidebar);
   color: var(--text-primary);
   font-size: 15px;
   line-height: 1.8;
   outline: none;
   resize: none;
   overflow: auto;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.15s ease;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
 }
 
 .content-textarea:hover {
@@ -476,60 +480,56 @@ const stopDrag = () => {
 
 .content-textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-/* 自定义拖拽手柄 */
-.custom-resizer {
-  position: absolute;
-  bottom: 9.5px;
-  right: 0px;
-  width: 16px;
-  height: 16px;
-  display: block;
-  cursor: ns-resize;
-  background-color: transparent;
-  transition: all 0.15s ease;
-  opacity: 1;
-  z-index: 10;
-}
-
-:deep(.dark) .custom-resizer svg polygon {
-  fill: #9ca3af;
+  background-color: var(--bg-sidebar);
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
 }
 
 .content-placeholder {
-  padding: 48px 24px;
+  padding: 48px 32px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  gap: 24px;
   border: 2px dashed var(--border);
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--bg-hover) 0%, var(--bg-primary) 100%);
+  background: linear-gradient(135deg, var(--bg-sidebar) 0%, var(--bg-hover) 100%);
   transition: all 0.3s ease;
 }
 
 .content-placeholder:hover {
   border-color: var(--primary);
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-hover) 100%);
+  background: linear-gradient(135deg, var(--bg-hover) 0%, var(--bg-sidebar) 100%);
 }
 
 .placeholder-icon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
   opacity: 0.6;
-  padding: 16px;
-  background-color: var(--bg-primary);
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background-color: var(--bg-input);
+  border-radius: 16px;
+  flex-shrink: 0;
 }
 
 .placeholder-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.placeholder-text h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.placeholder-text p {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: 15px;
-  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
   line-height: 1.6;
 }
 </style>

@@ -1,5 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import Icon from "./Icon.vue";
+import { Edit3, Trash2, Plus } from "lucide-vue-next";
 
 const props = defineProps({
   outline: {
@@ -94,7 +96,12 @@ const cleanTitle = (title) => {
 <template>
   <div class="outline-editor">
     <div class="outline-header">
-      <span class="outline-title">文章大纲</span>
+      <div class="header-left">
+        <div class="header-icon">
+          <Icon name="List" :size="20" />
+        </div>
+        <span class="outline-title">文章大纲</span>
+      </div>
       <span class="outline-count">{{ outline.length }} 个章节</span>
     </div>
     <div class="outline-list">
@@ -104,6 +111,7 @@ const cleanTitle = (title) => {
         class="outline-item"
       >
         <div class="item-left">
+          <div class="item-number">{{ index + 1 }}</div>
           <div
             v-if="editingIndex === index"
             class="edit-wrapper"
@@ -120,75 +128,29 @@ const cleanTitle = (title) => {
             />
           </div>
           <div v-else class="title-wrapper">
-            <span class="section-number">{{ index + 1 }}</span>
             <span class="section-title">{{ cleanTitle(section.title) }}</span>
           </div>
         </div>
         <div class="item-right">
           <button
-            class="edit-btn"
+            class="action-btn edit-btn"
             @click.stop="startEdit(index)"
             title="编辑章节"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path
-                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-              ></path>
-              <path
-                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-              ></path>
-            </svg>
+            <Icon name="Edit3" :size="16" />
           </button>
           <button
-            class="delete-btn"
+            class="action-btn delete-btn"
             @click="deleteSection(index, $event)"
             title="删除章节"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path
-                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-              ></path>
-            </svg>
+            <Icon name="Trash2" :size="16" />
           </button>
         </div>
       </div>
     </div>
     <button class="add-section-btn" @click="addSection">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
+      <Icon name="Plus" :size="18" />
       <span>添加章节</span>
     </button>
   </div>
@@ -196,20 +158,37 @@ const cleanTitle = (title) => {
 
 <style scoped>
 .outline-editor {
-  margin-bottom: 40px;
+  margin-bottom: 48px;
 }
 
 .outline-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
-  gap: 8px;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  border-radius: 10px;
+  color: white;
 }
 
 .outline-title {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -217,47 +196,36 @@ const cleanTitle = (title) => {
   font-size: 13px;
   color: var(--text-muted);
   background-color: var(--bg-hover);
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-:global(.light-mode) .outline-count {
-  background-color: #e5e7eb;
-  color: #4b5563;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
 }
 
 .outline-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .outline-item {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border-radius: 12px;
   gap: 12px;
-  background-color: var(--bg-hover);
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
-}
-
-:global(.light-mode) .outline-item {
-  background-color: #f9fafb;
-  border-color: #e5e7eb;
-}
-
-:global(.light-mode) .outline-item:hover {
-  background-color: #f3f4f6;
-  border-color: #d1d5db;
+  background-color: var(--bg-sidebar);
+  border: 2px solid var(--border);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .outline-item:hover {
-  background-color: var(--bg-input);
-  border-color: var(--border);
+  background-color: var(--bg-hover);
+  border-color: var(--text-muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
 }
 
 .item-left {
@@ -268,6 +236,20 @@ const cleanTitle = (title) => {
   min-width: 0;
 }
 
+.item-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 .title-wrapper {
   display: flex;
   align-items: center;
@@ -276,24 +258,10 @@ const cleanTitle = (title) => {
   min-width: 0;
 }
 
-.section-number {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-muted);
-  background-color: var(--bg-input);
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
 .section-title {
   color: var(--text-secondary);
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -306,60 +274,46 @@ const cleanTitle = (title) => {
 
 .edit-input {
   width: 100%;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border: 2px solid var(--primary);
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: var(--bg-input);
   color: var(--text-primary);
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   outline: none;
 }
 
 .item-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease;
 }
 
 .outline-item:hover .item-right {
   opacity: 1;
 }
 
-.edit-btn {
+.action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
   background-color: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.15s ease;
 }
 
-.edit-btn:hover {
+.action-btn:hover {
   background-color: var(--bg-input);
   color: var(--text-primary);
-}
-
-.delete-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background-color: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s ease;
 }
 
 .delete-btn:hover {
@@ -368,27 +322,25 @@ const cleanTitle = (title) => {
 }
 
 .add-section-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border: none;
+  gap: 10px;
+  padding: 14px 20px;
+  border: 2px dashed var(--border);
   background-color: transparent;
   color: var(--text-muted);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.15s ease;
+  border-radius: 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  justify-content: center;
 }
 
 .add-section-btn:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-:global(.light-mode) .add-section-btn:hover {
-  background-color: #f3f4f6;
-  color: #1f2937;
+  border-color: var(--primary);
+  background-color: rgba(14, 165, 233, 0.05);
+  color: var(--primary);
 }
 </style>
