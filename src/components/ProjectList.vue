@@ -245,24 +245,6 @@ onUnmounted(() => {
           <Icon name="FileText" :size="16" class="doc-icon" />
 
           <span class="project-name">{{ project.name }}</span>
-
-          <!-- 操作按钮 -->
-          <div class="action-buttons" @click.stop>
-            <button
-              class="action-btn edit-btn"
-              @click="startEdit(project)"
-              title="重命名"
-            >
-              <Icon name="Pencil" :size="14" />
-            </button>
-            <button
-              class="action-btn delete-btn"
-              @click="deleteProject(project.id, $event)"
-              title="删除项目"
-            >
-              <Icon name="Trash2" :size="14" />
-            </button>
-          </div>
         </template>
       </div>
     </div>
@@ -344,33 +326,33 @@ onUnmounted(() => {
   justify-content: flex-end;
 }
 
-.action-btn {
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+.new-project-actions .action-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 400;
   cursor: pointer;
   border: none;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
-.action-btn.confirm {
+.new-project-actions .action-btn.confirm {
   background-color: var(--primary);
   color: white;
 }
 
-.action-btn.confirm:hover {
+.new-project-actions .action-btn.confirm:hover {
   background-color: var(--primary);
   filter: brightness(1.1);
 }
 
-.action-btn.cancel {
-  background-color: transparent;
+.new-project-actions .action-btn.cancel {
+  background-color: var(--bg-input);
   color: var(--text-secondary);
   border: 1px solid var(--border);
 }
 
-.action-btn.cancel:hover {
+.new-project-actions .action-btn.cancel:hover {
   background-color: var(--bg-hover);
 }
 
@@ -428,47 +410,6 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.project-item:hover .action-buttons {
-  opacity: 1;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background-color: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.action-btn:hover {
-  background-color: var(--bg-hover);
-}
-
-.edit-btn:hover {
-  color: var(--primary);
-}
-
-.delete-btn:hover {
-  color: #ef4444;
-}
-
-.project-item:hover .menu-btn,
-.menu-btn:focus {
   opacity: 1;
 }
 
