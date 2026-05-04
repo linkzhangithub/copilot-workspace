@@ -106,7 +106,8 @@ const cancelNewProject = () => {
   newProjectName.value = "";
 };
 
-const startNewProject = () => {
+const startNewProject = (e) => {
+  e.stopPropagation();
   showNewProject.value = true;
 };
 
