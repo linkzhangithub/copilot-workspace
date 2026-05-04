@@ -70,7 +70,7 @@ const handleClickOutside = (event) => {
     return;
   }
 
-  // 检查是否点击在新建项目按钮上
+  // 检查是否点击在新建文章按钮上
   const newProjectBtn = event.target.closest(".new-project-btn");
   if (newProjectBtn && !showNewProject.value) {
     return;
@@ -199,7 +199,7 @@ onUnmounted(() => {
         <div class="new-project-form">
           <Input
             v-model="newProjectName"
-            placeholder="项目名称"
+            placeholder="新建文章"
             @keyup.enter="addProject"
             @keyup.esc="cancelNewProject"
           />

@@ -1,4 +1,6 @@
 <script setup>
+import Icon from "./Icon.vue";
+
 const props = defineProps({
   modelValue: {
     type: String,
@@ -10,14 +12,11 @@ const emit = defineEmits(['update:modelValue'])
 
 <template>
   <div class="search-box">
-    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="8"></circle>
-      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-    </svg>
+    <Icon name="Search" :size="16" class="search-icon" />
     <input
       :value="modelValue"
       type="text"
-      placeholder="搜索项目..."
+      placeholder="搜索文章..."
       @input="$emit('update:modelValue', $event.target.value)"
     />
   </div>
