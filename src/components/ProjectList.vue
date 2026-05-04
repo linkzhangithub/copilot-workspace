@@ -520,14 +520,9 @@ onUnmounted(() => {
   color: #9ca3af;
   cursor: pointer;
   border-radius: 4px;
-  opacity: 0;
   transition: all 0.15s ease;
   flex-shrink: 0;
   margin-left: auto;
-}
-
-.project-item:hover .item-menu-btn {
-  opacity: 1;
 }
 
 .item-menu-btn:hover {
