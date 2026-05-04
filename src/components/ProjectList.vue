@@ -462,7 +462,7 @@ onUnmounted(() => {
   height: 28px;
   border: none;
   background-color: transparent;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.15s ease;
@@ -473,6 +473,7 @@ onUnmounted(() => {
 .project-item:hover .item-menu-btn,
 .item-menu-btn:focus {
   opacity: 1;
+  color: var(--text-secondary);
 }
 
 .item-menu-btn:hover {

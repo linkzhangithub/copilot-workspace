@@ -3,21 +3,23 @@
   /* 主色调 */
   --primary: #0EA5E9;
   --primary-hover: #0284C7;
+  --accent: #3B82F6;
   
   /* 背景色 - 暗色主题默认 */
   --bg-page: #0B1120;
   --bg-sidebar: #0F172A;
   --bg-input: #1E293B;
-  --bg-hover: #1E293B;
+  --bg-hover: #2D3748;
   --selected-bg: #1E293B;
   
   /* 文字色 */
   --text-primary: #F1F5F9;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
+  --text-tertiary: #475569;
   
   /* 边框色 */
-  --border: #1E293B;
+  --border: #2D3748;
   
   /* 状态色 */
   --success: #10B981;
