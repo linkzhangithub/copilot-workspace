@@ -185,30 +185,6 @@ onUnmounted(() => {
 
 <template>
   <div class="project-list">
-    <!-- 标题区域 -->
-    <div class="section-header">
-      <h3 class="section-title">
-        <Icon name="FolderOpen" :size="16" />
-        <span>我的项目</span>
-      </h3>
-      <button class="menu-trigger" @click="showMenu = !showMenu">
-        <Icon name="MoreVertical" :size="16" />
-      </button>
-      <!-- 菜单浮窗 -->
-      <Transition name="menu-fade">
-        <div v-if="showMenu" class="menu-dropdown">
-          <button class="menu-item" @click="startEditAll">
-            <Icon name="Pencil" :size="14" />
-            <span>重命名</span>
-          </button>
-          <button class="menu-item delete" @click="deleteAllProjects">
-            <Icon name="Trash2" :size="14" />
-            <span>删除</span>
-          </button>
-        </div>
-      </Transition>
-    </div>
-
     <!-- 新建项目按钮 -->
     <div class="new-project-section">
       <div v-if="!showNewProject">
@@ -541,12 +517,13 @@ onUnmounted(() => {
   height: 24px;
   border: none;
   background-color: transparent;
-  color: var(--text-muted);
+  color: #9ca3af;
   cursor: pointer;
   border-radius: 4px;
   opacity: 0;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .project-item:hover .item-menu-btn {
