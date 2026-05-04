@@ -35,6 +35,7 @@ const emit = defineEmits([
 
 // 状态
 const showNewProject = ref(false);
+const showMenu = ref(false);
 const newProjectName = ref("");
 const editingId = ref(null);
 const editingName = ref("");
@@ -192,6 +193,22 @@ onUnmounted(() => {
         <Icon name="FolderOpen" :size="16" />
         <span>我的项目</span>
       </h3>
+      <button class="menu-trigger" @click="showMenu = !showMenu">
+        <Icon name="MoreVertical" :size="16" />
+      </button>
+      <!-- 菜单浮窗 -->
+      <Transition name="menu-fade">
+        <div v-if="showMenu" class="menu-dropdown">
+          <button class="menu-item" @click="startEditAll">
+            <Icon name="Pencil" :size="14" />
+            <span>重命名</span>
+          </button>
+          <button class="menu-item delete" @click="deleteAllProjects">
+            <Icon name="Trash2" :size="14" />
+            <span>删除</span>
+          </button>
+        </div>
+      </Transition>
     </div>
 
     <!-- 新建项目按钮 -->
@@ -252,6 +269,17 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.menu-fade-enter-active,
+.menu-fade-leave-active {
+  transition: all 0.2s ease;
+}
+
+.menu-fade-enter-from,
+.menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
 .project-list {
   display: flex;
   flex-direction: column;
@@ -260,6 +288,10 @@ onUnmounted(() => {
 
 .section-header {
   padding: 8px 4px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
 }
 
 .section-title {
@@ -272,6 +304,67 @@ onUnmounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin: 0;
+}
+
+.menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.menu-trigger:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 120px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 100;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.menu-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.menu-item.delete:hover {
+  color: #ef4444;
+  background-color: #fef2f2;
+}
+
+:deep(.dark) .menu-item.delete:hover {
+  background-color: #450a0a;
 }
 
 .new-project-section {
