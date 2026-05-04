@@ -140,10 +140,10 @@ const cancelEdit = () => {
   editingId.value = null;
 };
 
-// 删除项目
+// 删除文章
 const deleteProject = (id, event) => {
   event.stopPropagation();
-  if (confirm("确定要删除这个项目吗？")) {
+  if (confirm("确定要删除这篇文章吗？")) {
     emit("delete-project", id);
     showMenuId.value = null;
   }
@@ -185,16 +185,16 @@ onUnmounted(() => {
 
 <template>
   <div class="project-list">
-    <!-- 新建项目按钮 -->
+    <!-- 新建文章按钮 -->
     <div class="new-project-section">
       <div v-if="!showNewProject">
         <button class="new-project-btn" @click="startNewProject">
           <Icon name="Plus" :size="16" />
-          <span>新建项目</span>
+          <span>新建文章</span>
         </button>
       </div>
 
-      <!-- 新建项目输入框 -->
+      <!-- 新建文章输入框 -->
       <div v-else class="new-project-input">
         <div class="new-project-form">
           <Input

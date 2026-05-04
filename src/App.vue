@@ -307,7 +307,7 @@ onMounted(() => {
           </div>
           <h2 class="empty-title">开始创作</h2>
           <p class="empty-desc">
-            选择左侧项目或创建新项目，AI 将帮助你生成专业文章
+            选择左侧文章或创建新文章，AI 将帮助你生成专业文章
           </p>
         </div>
       </div>
