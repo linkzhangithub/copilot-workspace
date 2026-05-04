@@ -1,5 +1,7 @@
 <script setup>
 import { ref } from "vue";
+import Icon from "./Icon.vue";
+import { Play, Loader, Wand2, ZoomIn, ZoomOut, RotateCcw, FileText } from "lucide-vue-next";
 
 const props = defineProps({
   outline: {
@@ -172,9 +174,7 @@ const stopDrag = () => {
               class="action-btn generate-btn" 
               @click="generateSection(index)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
+              <Icon name="Play" :size="16" />
               生成
             </button>
             <button 
@@ -182,16 +182,7 @@ const stopDrag = () => {
               class="action-btn generating-btn" 
               disabled
             >
-              <svg class="spinner" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="2" x2="12" y2="6"></line>
-                <line x1="12" y1="18" x2="12" y2="22"></line>
-                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
-                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
-                <line x1="2" y1="12" x2="6" y2="12"></line>
-                <line x1="18" y1="12" x2="22" y2="12"></line>
-                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
-                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
-              </svg>
+              <Icon name="Loader" :size="16" class="spinner" />
               生成中...
             </button>
             <template v-else-if="section.content">
@@ -201,10 +192,7 @@ const stopDrag = () => {
                 @click="rewriteSection(index, 'polish')" 
                 title="润色优化内容"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
+                <Icon name="Wand2" :size="18" />
                 <span class="btn-label">润色</span>
               </button>
               <button 
@@ -212,16 +200,7 @@ const stopDrag = () => {
                 class="action-btn operating-btn" 
                 disabled
               >
-                <svg class="spinner" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="2" x2="12" y2="6"></line>
-                  <line x1="12" y1="18" x2="12" y2="22"></line>
-                  <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
-                  <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
-                  <line x1="2" y1="12" x2="6" y2="12"></line>
-                  <line x1="18" y1="12" x2="22" y2="12"></line>
-                  <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
-                  <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
-                </svg>
+                <Icon name="Loader" :size="16" class="spinner" />
                 <span class="btn-label">{{ getOperationDesc(currentOperation) }}</span>
               </button>
               <button 
@@ -230,12 +209,7 @@ const stopDrag = () => {
                 @click="rewriteSection(index, 'expand')" 
                 title="扩写丰富内容"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <polyline points="9 21 3 21 3 15"></polyline>
-                  <line x1="21" y1="3" x2="14" y2="10"></line>
-                  <line x1="3" y1="21" x2="10" y2="14"></line>
-                </svg>
+                <Icon name="ZoomIn" :size="18" />
                 <span class="btn-label">扩写</span>
               </button>
               <button 
@@ -244,12 +218,7 @@ const stopDrag = () => {
                 @click="rewriteSection(index, 'shorten')" 
                 title="缩写精简内容"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="9 3 3 3 3 9"></polyline>
-                  <polyline points="15 21 21 21 21 15"></polyline>
-                  <line x1="3" y1="3" x2="10" y2="10"></line>
-                  <line x1="21" y1="21" x2="14" y2="14"></line>
-                </svg>
+                <Icon name="ZoomOut" :size="18" />
                 <span class="btn-label">缩写</span>
               </button>
               <button 
@@ -258,10 +227,7 @@ const stopDrag = () => {
                 @click="generateSection(index)" 
                 title="重新生成内容"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
+                <Icon name="RotateCcw" :size="18" />
                 <span class="btn-label">重新生成</span>
               </button>
             </template>
@@ -285,10 +251,7 @@ const stopDrag = () => {
           </div>
           <div v-else class="content-placeholder">
             <div class="placeholder-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"></path>
-                <polyline points="16 3 21 8 16 3"></polyline>
-              </svg>
+              <Icon name="FileText" :size="48" />
             </div>
             <p class="placeholder-text">点击「生成」按钮来创作此章节</p>
           </div>
@@ -352,15 +315,33 @@ const stopDrag = () => {
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 50%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.action-btn:hover::before {
+  opacity: 1;
 }
 
 .action-btn:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.98);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
@@ -518,25 +499,37 @@ const stopDrag = () => {
 }
 
 .content-placeholder {
-  padding: 40px 16px;
+  padding: 48px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
   border: 2px dashed var(--border);
-  border-radius: 12px;
-  background-color: var(--bg-hover);
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--bg-hover) 0%, var(--bg-primary) 100%);
+  transition: all 0.3s ease;
+}
+
+.content-placeholder:hover {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-hover) 100%);
 }
 
 .placeholder-icon {
   color: var(--text-muted);
-  opacity: 0.5;
+  opacity: 0.6;
+  padding: 16px;
+  background-color: var(--bg-primary);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .placeholder-text {
   margin: 0;
   color: var(--text-secondary);
   font-size: 15px;
+  text-align: center;
+  line-height: 1.6;
 }
 </style>
