@@ -410,9 +410,6 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-  opacity: 1;
-}
-
 .menu-btn:hover {
   background-color: var(--bg-input);
   color: var(--text-secondary);
