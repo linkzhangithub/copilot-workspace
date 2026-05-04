@@ -36,6 +36,8 @@ const emit = defineEmits([
 // 状态
 const showNewProject = ref(false);
 const showMenu = ref(false);
+const showItemMenuId = ref(null);
+const itemMenuPosition = ref({ x: 0, y: 0 });
 const newProjectName = ref("");
 const editingId = ref(null);
 const editingName = ref("");
@@ -147,20 +149,16 @@ const deleteProject = (id, event) => {
   }
 };
 
-// 显示菜单
-const toggleMenu = (project, event) => {
-  event.stopPropagation();
-  if (showMenuId.value === project.id) {
-    showMenuId.value = null;
-    currentMenuProject.value = null;
+// 项目的三点菜单
+const toggleItemMenu = (project, event) => {
+  if (showItemMenuId.value === project.id) {
+    showItemMenuId.value = null;
   } else {
-    showMenuId.value = project.id;
-    currentMenuProject.value = project;
-    editingId.value = null;
+    showItemMenuId.value = project.id;
     // 计算菜单位置
     const rect = event.target.getBoundingClientRect();
-    menuPosition.value = {
-      x: rect.left,
+    itemMenuPosition.value = {
+      x: rect.right - 120,
       y: rect.bottom + 4,
     };
   }
@@ -168,7 +166,7 @@ const toggleMenu = (project, event) => {
 
 // 点击项目
 const handleProjectClick = (project) => {
-  if (showMenuId.value !== null || editingId.value !== null) {
+  if (showItemMenuId.value !== null || editingId.value !== null) {
     resetEditStates();
   }
   emit("project-click", project);
@@ -262,6 +260,38 @@ onUnmounted(() => {
           <Icon name="FileText" :size="16" class="doc-icon" />
 
           <span class="project-name">{{ project.name }}</span>
+
+          <!-- 三点菜单 -->
+          <button
+            class="item-menu-btn"
+            @click.stop="toggleItemMenu(project, $event)"
+          >
+            <Icon name="MoreVertical" :size="14" />
+          </button>
+
+          <!-- 菜单浮窗 -->
+          <Transition name="menu-fade">
+            <div
+              v-if="showItemMenuId === project.id"
+              class="item-menu-dropdown"
+              :style="{
+                left: `${itemMenuPosition.x}px`,
+                top: `${itemMenuPosition.y}px`,
+              }"
+            >
+              <button class="menu-item" @click.stop="startEdit(project)">
+                <Icon name="Pencil" :size="14" />
+                <span>重命名</span>
+              </button>
+              <button
+                class="menu-item delete"
+                @click.stop="deleteProject(project.id, $event)"
+              >
+                <Icon name="Trash2" :size="14" />
+                <span>删除</span>
+              </button>
+            </div>
+          </Transition>
         </template>
       </div>
     </div>
@@ -501,6 +531,42 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.item-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.project-item:hover .item-menu-btn {
+  opacity: 1;
+}
+
+.item-menu-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.item-menu-dropdown {
+  position: fixed;
+  min-width: 120px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 1000;
 }
 
 .menu-btn:hover {
