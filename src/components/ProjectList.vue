@@ -266,28 +266,6 @@ onUnmounted(() => {
         </template>
       </div>
     </div>
-
-    <!-- 下拉菜单 Teleport -->
-    <Teleport to="body">
-      <div v-if="showMenuId !== null" class="menu-portal" ref="menuRef">
-        <div
-          class="menu-dropdown"
-          :style="{ left: `${menuPosition.x}px`, top: `${menuPosition.y}px` }"
-        >
-          <button class="menu-item" @click.stop="startEdit(currentMenuProject)">
-            <Icon name="Pencil" :size="14" />
-            <span>重命名</span>
-          </button>
-          <button
-            class="menu-item delete"
-            @click="deleteProject(showMenuId, $event)"
-          >
-            <Icon name="Trash2" :size="14" />
-            <span>删除</span>
-          </button>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -377,22 +355,13 @@ onUnmounted(() => {
 }
 
 .action-btn.confirm {
-  background: linear-gradient(135deg, var(--primary) 0%, #0284c7 100%);
+  background-color: var(--primary);
   color: white;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
 }
 
 .action-btn.confirm:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
-}
-
-.action-btn.confirm:active {
-  transform: translateY(0);
-}
-
-.action-btn.confirm:hover {
-  background-color: var(--primary-hover);
+  background-color: var(--primary);
+  filter: brightness(1.1);
 }
 
 .action-btn.cancel {
@@ -403,7 +372,6 @@ onUnmounted(() => {
 
 .action-btn.cancel:hover {
   background-color: var(--bg-hover);
-  border-color: var(--text-muted);
 }
 
 .projects {
