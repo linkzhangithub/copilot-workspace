@@ -134,11 +134,11 @@ app.post('/api/ai/generate-content-simple', async (req, res) => {
     const messages = [
       {
         role: 'system',
-        content: '你是一个专业的文案撰写助手，擅长根据大纲撰写详细的文章内容。',
+        content: '你是一个专业的文案撰写助手，擅长根据大纲撰写详细的文章内容。\n\n⚠️ 严格遵守以下规则：\n1. 只返回正文内容，绝对不要添加任何标题\n2. 不要以#、##、###等markdown标题开头\n3. 不要重复当前章节的标题\n4. 不要添加任何解释、说明或引导文字\n5. 直接开始撰写正文的第一句话\n6. 输出格式应该就是纯文本段落，不要任何markdown格式',
       },
       {
         role: 'user',
-        content: `根据以下文章大纲和上下文，撰写第${sectionIndex + 1}部分的正文内容：\n\n文章主题上下文：${context || '无'}\n\n当前章节：${currentSection.title}\n子主题：${currentSection.children?.join('、') || '无'}\n\n请撰写一段详细的正文内容，字数约300-500字。`,
+        content: `根据以下文章大纲和上下文，撰写第${sectionIndex + 1}部分的正文内容：\n\n文章主题上下文：${context || '无'}\n\n当前章节：${currentSection.title}\n子主题：${currentSection.children?.join('、') || '无'}\n\n请撰写一段详细的正文内容，字数约300-500字。\n\n⚠️ 再次提醒：只返回纯文本正文，不要任何标题！`,
       },
     ];
 

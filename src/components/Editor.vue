@@ -119,7 +119,7 @@ const generateOutline = async () => {
         title: item.title,
         children: [],
       }));
-      
+
       // 前端再做一层去重和数量限制
       const seen = new Set();
       const deduplicated = [];
@@ -130,10 +130,10 @@ const generateOutline = async () => {
           deduplicated.push(item);
         }
       }
-      
+
       outlineData = deduplicated.slice(0, 6);
     }
-    
+
     // 确保无论如何都有数据
     if (outlineData.length === 0) {
       error.value = "生成大纲失败，使用默认数据";
@@ -144,27 +144,31 @@ const generateOutline = async () => {
         { title: "未来展望", children: [] },
       ];
     }
-    
+
     const timestamp = Date.now();
-    
+
     // 如果大纲已有内容，直接追加；如果为空，从头生成
     if (outline.value.length > 0) {
       // 大纲已有内容，逐个追加新内容
-      const existingTitles = new Set(outline.value.map((item) => item.title.trim().toLowerCase()));
-      const newItems = outlineData.filter((item) => !existingTitles.has(item.title.trim().toLowerCase()));
-      
+      const existingTitles = new Set(
+        outline.value.map((item) => item.title.trim().toLowerCase()),
+      );
+      const newItems = outlineData.filter(
+        (item) => !existingTitles.has(item.title.trim().toLowerCase()),
+      );
+
       // 限制追加数量不超过3个
       const limitedNewItems = newItems.slice(0, 3);
-      
+
       for (let i = 0; i < limitedNewItems.length; i++) {
         const newItem = {
           ...limitedNewItems[i],
           id: `section-${timestamp}-${i}`,
         };
         outline.value = [...outline.value, newItem];
-        
+
         if (i < limitedNewItems.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise((resolve) => setTimeout(resolve, 200));
         }
       }
     } else {
@@ -172,13 +176,12 @@ const generateOutline = async () => {
       for (let i = 0; i < outlineData.length; i++) {
         const newOutline = outlineData.slice(0, i + 1);
         outline.value = addIdsToOutline(newOutline, timestamp);
-        
+
         if (i < outlineData.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise((resolve) => setTimeout(resolve, 200));
         }
       }
     }
-    
   } catch (err) {
     console.error("请求失败:", err);
     error.value = "生成大纲失败，请确保后端服务已启动";
@@ -202,6 +205,76 @@ const updateOutline = (newOutline) => {
   outline.value = newOutline;
 };
 
+// 中文数字转换
+const chineseNumbers = [
+  "一",
+  "二",
+  "三",
+  "四",
+  "五",
+  "六",
+  "七",
+  "八",
+  "九",
+  "十",
+];
+
+// 清理内容中重复的标题
+const cleanDuplicateTitle = (content, title) => {
+  if (!content || !title) return content;
+
+  let cleaned = content.trim();
+
+  // 准备标题的各种变体（去掉标点、空格等）用于匹配
+  const cleanForMatch = (text) => {
+    return text.replace(/[、\(\)\[\]（）【】\.\,，。\s\-]/g, '').toLowerCase();
+  };
+  
+  const targetTitleClean = cleanForMatch(title);
+  
+  // 按行分割，查找并移除匹配的标题行（只检查前5行，避免误删正文）
+  const lines = cleaned.split('\n');
+  const filteredLines = [];
+  let removedCount = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineTrim = line.trim();
+    
+    // 只在前5行检查标题
+    if (i < 5 && removedCount < 2) {
+      // 检查是否是markdown标题
+      const isMarkdownTitle = lineTrim.startsWith('#');
+      const lineContent = isMarkdownTitle ? lineTrim.replace(/^#+\s*/, '').trim() : lineTrim;
+      const lineClean = cleanForMatch(lineContent);
+      
+      // 检查是否匹配（包括部分匹配）
+      if (lineClean.length > 0 && targetTitleClean.length > 0) {
+        if (lineClean.includes(targetTitleClean) || targetTitleClean.includes(lineClean)) {
+          removedCount++;
+          continue; // 跳过这一行
+        }
+        
+        // 检查是否有部分关键词匹配（比如"概述"匹配"AI写作助手概述"）
+        const titleWords = title.split(/[、\s]+/);
+        for (const word of titleWords) {
+          if (word.length >= 2 && lineClean.includes(cleanForMatch(word))) {
+            // 可能是相关标题，跳过
+            removedCount++;
+            continue;
+          }
+        }
+      }
+    }
+    
+    filteredLines.push(line);
+  }
+  
+  cleaned = filteredLines.join('\n').trim();
+
+  return cleaned;
+};
+
 // 导出 Markdown
 const exportMarkdown = () => {
   let markdown = "";
@@ -210,15 +283,40 @@ const exportMarkdown = () => {
     markdown += `# ${props.project.name}\n\n`;
   }
 
-  const appendContent = (items, level = 1) => {
-    items.forEach((item) => {
-      const heading = "#".repeat(level + 1);
-      markdown += `${heading} ${item.title}\n\n`;
-      if (item.content) {
-        markdown += `${item.content}\n\n`;
+  const appendContent = (items, parentLevel = 0, parentIndex = []) => {
+    items.forEach((item, index) => {
+      const currentIndex = [...parentIndex, index];
+      let heading = "";
+      let title = "";
+
+      if (currentIndex.length === 1) {
+        // 主标题
+        const num = chineseNumbers[index] || index + 1;
+        heading = "##";
+        title = `${num}、${item.title}`;
+      } else if (currentIndex.length === 2) {
+        // 子标题
+        heading = "###";
+        title = `(${index + 1}) ${item.title}`;
+      } else {
+        // 更深层级（如果有的话）
+        heading = "#".repeat(currentIndex.length + 1);
+        title = item.title;
       }
+
+      markdown += `${heading} ${title}\n\n`;
+
+      // 只输出纯内容，不重复标题
+      if (item.content) {
+        // 清理内容中重复的标题
+        let content = cleanDuplicateTitle(item.content, item.title);
+        if (content) {
+          markdown += `${content}\n\n`;
+        }
+      }
+
       if (item.children && item.children.length > 0) {
-        appendContent(item.children, level + 1);
+        appendContent(item.children, parentLevel + 1, currentIndex);
       }
     });
   };

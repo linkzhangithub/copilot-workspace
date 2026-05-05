@@ -77,6 +77,86 @@ const cleanTitle = (title) => {
   return title.replace(/^#+\s*/, "").trim();
 };
 
+// 清理内容中重复的标题 - 更激进的清理
+const cleanDuplicateTitleInContent = (content, title) => {
+  if (!content) return content;
+
+  let cleaned = content.trim();
+
+  // 准备标题的各种变体（去掉标点、空格等）用于匹配
+  const cleanForMatch = (text) => {
+    return text.replace(/[、\(\)\[\]（）【】\.\,，。\s\-]/g, '').toLowerCase();
+  };
+  
+  const targetTitleClean = title ? cleanForMatch(title) : '';
+  
+  // 按行分割，查找并移除匹配的标题行
+  const lines = cleaned.split('\n');
+  const filteredLines = [];
+  let removedCount = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineTrim = line.trim();
+    
+    // 前5行，或者前2行（如果行数少），进行严格清理
+    if (i < Math.min(5, Math.max(2, lines.length * 0.3)) && removedCount < 3) {
+      
+      // 1. 直接移除所有以#开头的行（不管是不是标题）
+      if (lineTrim.startsWith('#')) {
+        removedCount++;
+        continue;
+      }
+      
+      // 2. 如果有title，检查是否包含title相关内容
+      if (title && targetTitleClean) {
+        const lineClean = cleanForMatch(lineTrim);
+        
+        // 完全匹配或者部分匹配都移除
+        if (lineClean.length > 0) {
+          if (lineClean.includes(targetTitleClean) || targetTitleClean.includes(lineClean)) {
+            removedCount++;
+            continue;
+          }
+          
+          // 检查关键词匹配
+          const titleWords = title.split(/[、\s]+/);
+          for (const word of titleWords) {
+            if (word.length >= 2 && lineClean.includes(cleanForMatch(word))) {
+              removedCount++;
+              continue;
+            }
+          }
+        }
+      }
+      
+      // 3. 如果行很短（小于15个字符）并且看起来像标题，也移除
+      if (lineTrim.length > 0 && lineTrim.length < 15) {
+        // 检查是否有常见的标题特征
+        const titlePatterns = [
+          /^第[一二三四五六七八九十\d]+[章节部分条]/,
+          /^[一二三四五六七八九十]+[、\.]/,
+          /^\d+[\.\)、]/,
+          /^概述|简介|前言|结论|总结|参考文献/
+        ];
+        
+        for (const pattern of titlePatterns) {
+          if (pattern.test(lineTrim)) {
+            removedCount++;
+            continue;
+          }
+        }
+      }
+    }
+    
+    filteredLines.push(line);
+  }
+  
+  cleaned = filteredLines.join('\n').trim();
+
+  return cleaned;
+};
+
 // 获取显示编号
 const chineseNumbers = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
 
@@ -205,6 +285,17 @@ const generateSection = async (path) => {
   const pathKey = getPathKey(path);
   generatingPath.value = pathKey;
 
+  // 获取当前section的title
+  const getCurrentSection = () => {
+    let current = props.outline;
+    for (let i = 0; i < path.length - 1; i++) {
+      current = current[path[i]].children;
+    }
+    return current[path[path.length - 1]];
+  };
+  const currentSection = getCurrentSection();
+  const sectionTitle = currentSection.title;
+
   const updateContent = (content) => {
     const deepClone = (arr) => {
       return arr.map(item => ({
@@ -242,14 +333,11 @@ const generateSection = async (path) => {
     let fullContent = "";
     if (result.success && result.data) {
       fullContent = result.data;
+      // 清理内容中可能重复的标题
+      fullContent = cleanDuplicateTitleInContent(fullContent, sectionTitle);
     } else {
       // 最终fallback
-      let current = props.outline;
-      for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]].children;
-      }
-      const section = current[path[path.length - 1]];
-      fullContent = `这是关于"${section.title}"的详细内容。
+      fullContent = `这是关于"${sectionTitle}"的详细内容。
 
 在这里可以展开说明相关的细节、例子、和注意事项等。`;
     }
@@ -264,12 +352,7 @@ const generateSection = async (path) => {
     console.error("生成失败，使用fallback:", err);
     
     // 最后fallback，也用打字机效果
-    let current = props.outline;
-    for (let i = 0; i < path.length - 1; i++) {
-      current = current[path[i]].children;
-    }
-    const section = current[path[path.length - 1]];
-    const fullContent = `这是关于"${section.title}"的详细内容。
+    const fullContent = `这是关于"${sectionTitle}"的详细内容。
 
 在这里可以展开说明相关的细节、例子、和注意事项等。`;
     
@@ -293,6 +376,7 @@ const rewriteSection = async (path, operation) => {
     current = current[path[i]].children;
   }
   const section = current[path[path.length - 1]];
+  const sectionTitle = section.title;
   
   if (!section.content) return;
   if (generatingPath.value !== null) return;
@@ -317,6 +401,8 @@ const rewriteSection = async (path, operation) => {
     let newContent = section.content;
     if (result.success && result.data) {
       newContent = result.data;
+      // 清理内容中可能重复的标题
+      newContent = cleanDuplicateTitleInContent(newContent, sectionTitle);
     } else {
       // 如果API失败，使用fallback
       if (operation === "polish") {
