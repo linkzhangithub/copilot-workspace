@@ -227,34 +227,39 @@ const cleanDuplicateTitle = (content, title) => {
 
   // 准备标题的各种变体（去掉标点、空格等）用于匹配
   const cleanForMatch = (text) => {
-    return text.replace(/[、\(\)\[\]（）【】\.\,，。\s\-]/g, '').toLowerCase();
+    return text.replace(/[、\(\)\[\]（）【】\.\,，。\s\-]/g, "").toLowerCase();
   };
-  
+
   const targetTitleClean = cleanForMatch(title);
-  
+
   // 按行分割，查找并移除匹配的标题行（只检查前5行，避免误删正文）
-  const lines = cleaned.split('\n');
+  const lines = cleaned.split("\n");
   const filteredLines = [];
   let removedCount = 0;
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineTrim = line.trim();
-    
+
     // 只在前5行检查标题
     if (i < 5 && removedCount < 2) {
       // 检查是否是markdown标题
-      const isMarkdownTitle = lineTrim.startsWith('#');
-      const lineContent = isMarkdownTitle ? lineTrim.replace(/^#+\s*/, '').trim() : lineTrim;
+      const isMarkdownTitle = lineTrim.startsWith("#");
+      const lineContent = isMarkdownTitle
+        ? lineTrim.replace(/^#+\s*/, "").trim()
+        : lineTrim;
       const lineClean = cleanForMatch(lineContent);
-      
+
       // 检查是否匹配（包括部分匹配）
       if (lineClean.length > 0 && targetTitleClean.length > 0) {
-        if (lineClean.includes(targetTitleClean) || targetTitleClean.includes(lineClean)) {
+        if (
+          lineClean.includes(targetTitleClean) ||
+          targetTitleClean.includes(lineClean)
+        ) {
           removedCount++;
           continue; // 跳过这一行
         }
-        
+
         // 检查是否有部分关键词匹配（比如"概述"匹配"AI写作助手概述"）
         const titleWords = title.split(/[、\s]+/);
         for (const word of titleWords) {
@@ -266,11 +271,11 @@ const cleanDuplicateTitle = (content, title) => {
         }
       }
     }
-    
+
     filteredLines.push(line);
   }
-  
-  cleaned = filteredLines.join('\n').trim();
+
+  cleaned = filteredLines.join("\n").trim();
 
   return cleaned;
 };
@@ -493,6 +498,8 @@ onUnmounted(() => {
   display: flex;
   gap: 14px;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* 标题容器 - 固定高度防止抖动 */
@@ -510,6 +517,8 @@ onUnmounted(() => {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 70px;
   box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* hover 时背景加深 */
@@ -536,6 +545,7 @@ onUnmounted(() => {
 /* 编辑容器 */
 .edit-wrapper {
   flex: 1;
+  min-width: 0;
 }
 
 .edit-btn {
@@ -572,11 +582,17 @@ onUnmounted(() => {
   height: 42px;
   display: flex;
   align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .edit-title-input {
   width: 100%;
-  padding: 0;
+  min-width: 0;
+  padding: 0 8px;
   border: 2px solid var(--primary);
   border-radius: 8px;
   background-color: var(--bg-input);
@@ -587,6 +603,7 @@ onUnmounted(() => {
   line-height: 1.2;
   box-sizing: border-box;
   height: 42px;
+  resize: none;
 }
 
 .topic-hint {

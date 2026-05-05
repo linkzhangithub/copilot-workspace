@@ -722,6 +722,8 @@ watch(() => props.outline, () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .header-left {
@@ -790,6 +792,8 @@ watch(() => props.outline, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   padding: 8px 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* 子标题样式 */
@@ -801,6 +805,8 @@ watch(() => props.outline, () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .header-actions {

@@ -685,6 +685,8 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   min-height: 56px;
   box-sizing: border-box;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .outline-item.clickable {
@@ -762,15 +764,19 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .edit-wrapper {
   flex: 1;
+  min-width: 0;
 }
 
 .edit-input {
   width: 100%;
-  padding: 0;
+  min-width: 0;
+  padding: 0 8px;
   border: 2px solid var(--primary);
   border-radius: 6px;
   background-color: var(--bg-input);
@@ -780,6 +786,7 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   outline: none;
   box-sizing: border-box;
   height: 28px;
+  resize: none;
 }
 
 .generate-sub-btn {
