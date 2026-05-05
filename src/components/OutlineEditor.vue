@@ -28,6 +28,8 @@ const expandedState = ref({});
 const generatingPath = ref(null);
 const draggedIndex = ref(null);
 const overIndex = ref(null);
+const touchStartY = ref(0);
+const isTouchDragging = ref(false);
 
 const flatOutline = computed(() => {
   const result = [];
@@ -331,6 +333,70 @@ const handleDragEnd = () => {
   overIndex.value = null;
 };
 
+// 移动端触摸事件
+const touchMoveThreshold = 10; // 移动超过10px才认为是拖动
+
+const handleTouchStart = (path, event) => {
+  if (event.touches.length !== 1) return;
+  touchStartY.value = event.touches[0].clientY;
+  isTouchDragging.value = false; // 初始不认为是拖动
+  draggedIndex.value = path[0];
+};
+
+const handleTouchMove = (path, event) => {
+  if (event.touches.length !== 1) return;
+
+  const touch = event.touches[0];
+  const diffY = Math.abs(touch.clientY - touchStartY.value);
+
+  // 只有移动超过阈值才认为是拖动
+  if (!isTouchDragging.value && diffY > touchMoveThreshold) {
+    isTouchDragging.value = true;
+    event.preventDefault(); // 防止滚动
+  }
+
+  if (isTouchDragging.value) {
+    event.preventDefault();
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (target) {
+      const wrapper = target.closest(".outline-item-wrapper");
+      if (wrapper) {
+        const index = parseInt(wrapper.dataset.index);
+        if (!isNaN(index) && index !== draggedIndex.value) {
+          overIndex.value = index;
+        }
+      }
+    }
+  }
+};
+
+const handleTouchEnd = (path, event) => {
+  if (!isTouchDragging.value) {
+    // 如果不是拖动，重置状态
+    draggedIndex.value = null;
+    overIndex.value = null;
+    return;
+  }
+
+  isTouchDragging.value = false;
+
+  if (overIndex.value !== null && draggedIndex.value !== overIndex.value) {
+    const deepClone = (arr) => {
+      return arr.map((item) => ({
+        ...item,
+        children: item.children ? deepClone(item.children) : [],
+      }));
+    };
+    const newOutline = deepClone(props.outline);
+    const [removed] = newOutline.splice(draggedIndex.value, 1);
+    newOutline.splice(overIndex.value, 0, removed);
+    emit("update:outline", newOutline);
+  }
+
+  draggedIndex.value = null;
+  overIndex.value = null;
+};
+
 onMounted(() => document.addEventListener("click", handleGlobalClick));
 onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
 </script>
@@ -352,6 +418,7 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
         v-for="item in flatOutline"
         :key="getPathKey(item.path)"
         class="outline-item-wrapper"
+        :data-index="item.level === 0 ? item.path[0] : undefined"
         :class="[
           `outline-item-wrapper-level-${item.level}`,
           {
@@ -367,6 +434,13 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
         @dragleave="item.level === 0 ? handleDragLeave() : null"
         @drop="item.level === 0 ? handleDrop(item.path, $event) : null"
         @dragend="item.level === 0 ? handleDragEnd() : null"
+        @touchstart="
+          item.level === 0 ? handleTouchStart(item.path, $event) : null
+        "
+        @touchmove="
+          item.level === 0 ? handleTouchMove(item.path, $event) : null
+        "
+        @touchend="item.level === 0 ? handleTouchEnd(item.path, $event) : null"
       >
         <div
           class="outline-item"
@@ -906,6 +980,16 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
     opacity: 1;
   }
 
+  .drag-handle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .drag-handle svg {
+    width: 20px;
+    height: 20px;
+  }
+
   .action-btn {
     width: 28px;
     height: 28px;
@@ -1029,8 +1113,13 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   }
 
   .drag-handle {
-    width: 22px;
-    height: 22px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .drag-handle svg {
+    width: 18px;
+    height: 18px;
   }
 
   .outline-item-wrapper-level-1 {
