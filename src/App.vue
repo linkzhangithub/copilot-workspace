@@ -586,4 +586,108 @@ onMounted(() => {
   color: var(--text-muted);
   margin: 0;
 }
+
+/* ===== 响应式设计 - 移动端适配 ===== */
+@media (max-width: 768px) {
+  /* 侧边栏 */
+  .sidebar {
+    width: 280px;
+  }
+
+  .sidebar-header {
+    padding: 14px;
+  }
+
+  .logo-text {
+    font-size: 15px;
+  }
+
+  .sidebar-content {
+    padding: 10px;
+  }
+
+  /* 顶部栏 */
+  .topbar {
+    padding: 0 12px;
+    gap: 12px;
+  }
+
+  .breadcrumb {
+    font-size: 14px;
+  }
+
+  .export-btn span {
+    display: none;
+  }
+
+  .export-btn {
+    padding: 8px 10px;
+  }
+
+  .theme-toggle {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* 空状态 */
+  .empty-state {
+    padding: 32px 20px;
+  }
+
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .empty-title {
+    font-size: 20px;
+  }
+
+  .empty-desc {
+    font-size: 14px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .topbar {
+    height: 52px;
+    padding: 0 10px;
+  }
+
+  .toggle-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .breadcrumb {
+    font-size: 13px;
+  }
+
+  .empty-state {
+    padding: 24px 16px;
+  }
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .empty-title {
+    font-size: 18px;
+  }
+
+  .empty-desc {
+    font-size: 13px;
+  }
+}
 </style>

@@ -958,4 +958,175 @@ const stopDrag = () => {
   color: var(--text-secondary);
   line-height: 1.6;
 }
+
+/* ===== 响应式设计 - 移动端适配 ===== */
+@media (max-width: 768px) {
+  .sections-list {
+    gap: 24px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .header-left {
+    gap: 8px;
+  }
+
+  .content-number {
+    font-size: 18px;
+  }
+
+  .level-1 .content-number {
+    font-size: 14px;
+  }
+
+  .level-2 .content-number {
+    font-size: 13px;
+  }
+
+  .main-title {
+    font-size: 20px;
+  }
+
+  .subsection-title {
+    font-size: 16px;
+  }
+
+  .action-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .section-content {
+    padding-left: 40px;
+  }
+
+  .content-textarea {
+    padding: 16px 20px 16px 18px;
+    font-size: 15px;
+    line-height: 1.75;
+    min-height: 200px;
+    border-radius: 14px;
+  }
+
+  .content-placeholder {
+    padding: 40px 24px;
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+
+  .placeholder-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .placeholder-text h4 {
+    font-size: 15px;
+  }
+
+  .placeholder-text p {
+    font-size: 14px;
+  }
+
+  .level-1 {
+    margin-left: 20px;
+  }
+
+  .level-2 {
+    margin-left: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sections-list {
+    gap: 20px;
+  }
+
+  .section-header {
+    gap: 8px;
+  }
+
+  .header-actions {
+    gap: 4px;
+  }
+
+  .content-number {
+    font-size: 16px;
+  }
+
+  .level-1 .content-number {
+    font-size: 13px;
+  }
+
+  .level-2 .content-number {
+    font-size: 12px;
+  }
+
+  .main-title {
+    font-size: 18px;
+  }
+
+  .subsection-title {
+    font-size: 15px;
+  }
+
+  .action-btn {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .action-btn .btn-label {
+    display: none;
+  }
+
+  .section-content {
+    padding-left: 28px;
+  }
+
+  .content-textarea {
+    padding: 14px 16px 14px 14px;
+    font-size: 14px;
+    line-height: 1.7;
+    min-height: 180px;
+    border-radius: 12px;
+  }
+
+  .content-placeholder {
+    padding: 32px 20px;
+    gap: 16px;
+  }
+
+  .placeholder-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .placeholder-text h4 {
+    font-size: 14px;
+  }
+
+  .placeholder-text p {
+    font-size: 13px;
+  }
+
+  .level-1 {
+    margin-left: 12px;
+  }
+
+  .level-2 {
+    margin-left: 20px;
+  }
+}
 </style>

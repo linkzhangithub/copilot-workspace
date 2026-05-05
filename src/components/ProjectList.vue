@@ -530,4 +530,125 @@ onUnmounted(() => {
 .edit-mode {
   flex: 1;
 }
+
+/* ===== 响应式设计 - 移动端适配 ===== */
+@media (max-width: 768px) {
+  .new-project-section {
+    padding: 0 6px 10px;
+  }
+
+  .new-project-btn {
+    padding: 10px 12px;
+    font-size: 13px;
+    gap: 8px;
+  }
+
+  .new-project-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .divider {
+    margin: 10px 6px;
+  }
+
+  .projects {
+    gap: 4px;
+  }
+
+  .project-item {
+    padding: 10px 10px;
+    gap: 10px;
+  }
+
+  .item-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .item-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .item-title {
+    font-size: 13px;
+  }
+
+  .item-menu-btn {
+    width: 26px;
+    height: 26px;
+    opacity: 1;
+  }
+
+  .item-menu-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .item-menu-dropdown {
+    min-width: 140px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  .menu-item {
+    padding: 9px 10px;
+    font-size: 13px;
+    gap: 8px;
+  }
+
+  .menu-item svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .new-project-section {
+    padding: 0 4px 8px;
+  }
+
+  .new-project-btn {
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+
+  .divider {
+    margin: 8px 4px;
+  }
+
+  .projects {
+    gap: 3px;
+  }
+
+  .project-item {
+    padding: 9px 8px;
+    gap: 8px;
+  }
+
+  .item-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .item-title {
+    font-size: 12px;
+  }
+
+  .item-menu-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .item-menu-dropdown {
+    min-width: 130px;
+  }
+
+  .menu-item {
+    padding: 8px 9px;
+    font-size: 12px;
+    gap: 7px;
+  }
+}
 </style>

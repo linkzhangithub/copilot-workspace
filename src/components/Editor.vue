@@ -644,4 +644,95 @@ onUnmounted(() => {
     transform: rotate(360deg);
   }
 }
+
+/* ===== 响应式设计 - 移动端适配 ===== */
+@media (max-width: 768px) {
+  .editor-content {
+    padding: 32px 20px;
+  }
+
+  .topic-section {
+    margin-bottom: 32px;
+  }
+
+  .topic-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .title-wrapper {
+    padding: 12px 14px;
+    min-height: 60px;
+  }
+
+  .project-title {
+    font-size: 26px;
+    height: 34px;
+  }
+
+  .edit-title-input {
+    font-size: 26px;
+    height: 34px;
+  }
+
+  .generate-btn {
+    width: 100%;
+    justify-content: center;
+    height: 48px;
+    padding: 10px 16px;
+  }
+
+  .error-message {
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  .topic-hint {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .editor-content {
+    padding: 24px 16px;
+  }
+
+  .topic-section {
+    margin-bottom: 24px;
+  }
+
+  .title-wrapper {
+    padding: 10px 12px;
+    min-height: 56px;
+  }
+
+  .project-title {
+    font-size: 22px;
+    height: 30px;
+  }
+
+  .edit-title-input {
+    font-size: 22px;
+    height: 30px;
+  }
+
+  .generate-btn {
+    height: 46px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .error-message {
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .topic-hint {
+    font-size: 13px;
+    margin-top: 10px 0 0 0;
+  }
+}
 </style>

@@ -64,4 +64,33 @@ const emit = defineEmits(['update:modelValue'])
 .search-box input::placeholder {
   color: var(--text-muted);
 }
+
+/* ===== 响应式设计 - 移动端适配 ===== */
+@media (max-width: 768px) {
+  .search-box {
+    padding: 9px 12px;
+    gap: 8px;
+    border-radius: 10px;
+  }
+
+  .search-box .search-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .search-box input {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-box {
+    padding: 8px 10px;
+    gap: 7px;
+  }
+
+  .search-box input {
+    font-size: 12px;
+  }
+}
 </style>

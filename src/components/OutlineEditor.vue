@@ -830,4 +830,221 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   opacity: 0.7;
   cursor: not-allowed;
 }
+
+/* ===== 响应式设计 - 移动端适配 ===== */
+@media (max-width: 768px) {
+  .outline-editor {
+    margin-bottom: 36px;
+  }
+
+  .outline-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .header-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  .header-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .outline-title {
+    font-size: 16px;
+  }
+
+  .outline-count {
+    font-size: 12px;
+  }
+
+  .outline-list {
+    gap: 10px;
+  }
+
+  .outline-item-wrapper {
+    gap: 8px;
+  }
+
+  .outline-item {
+    padding: 10px 12px;
+    min-height: 50px;
+  }
+
+  .item-left {
+    gap: 8px;
+  }
+
+  .outline-number {
+    font-size: 13px;
+  }
+
+  .outline-item-wrapper-level-1 .outline-number {
+    font-size: 12px;
+  }
+
+  .outline-item-wrapper-level-2 .outline-number {
+    font-size: 11px;
+  }
+
+  .section-title {
+    font-size: 13px;
+  }
+
+  .edit-input {
+    font-size: 13px;
+    height: 26px;
+  }
+
+  .item-right {
+    gap: 4px;
+    opacity: 1;
+  }
+
+  .action-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .action-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .generate-sub-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .drag-handle {
+    width: 24px;
+    height: 24px;
+  }
+
+  .drag-handle svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .outline-item-wrapper-level-0 {
+    padding-left: 0;
+  }
+
+  .outline-item-wrapper-level-1 {
+    padding-left: 24px;
+  }
+
+  .outline-item-wrapper-level-2 {
+    padding-left: 44px;
+  }
+
+  .add-section-btn {
+    padding: 12px 16px;
+    font-size: 13px;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .outline-editor {
+    margin-bottom: 28px;
+  }
+
+  .outline-header {
+    margin-bottom: 14px;
+  }
+
+  .header-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .header-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .outline-title {
+    font-size: 15px;
+  }
+
+  .outline-list {
+    gap: 8px;
+  }
+
+  .outline-item-wrapper {
+    gap: 6px;
+  }
+
+  .outline-item {
+    padding: 8px 10px;
+    min-height: 46px;
+    gap: 8px;
+  }
+
+  .outline-number {
+    font-size: 12px;
+  }
+
+  .outline-item-wrapper-level-1 .outline-number {
+    font-size: 11px;
+  }
+
+  .outline-item-wrapper-level-2 .outline-number {
+    font-size: 10px;
+  }
+
+  .section-title {
+    font-size: 12px;
+  }
+
+  .edit-input {
+    font-size: 12px;
+    height: 24px;
+  }
+
+  .action-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .action-btn svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .generate-sub-btn {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+
+  .generate-sub-btn span {
+    display: none;
+  }
+
+  .drag-handle {
+    width: 22px;
+    height: 22px;
+  }
+
+  .outline-item-wrapper-level-1 {
+    padding-left: 16px;
+  }
+
+  .outline-item-wrapper-level-2 {
+    padding-left: 30px;
+  }
+
+  .add-section-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+    gap: 6px;
+  }
+}
 </style>
