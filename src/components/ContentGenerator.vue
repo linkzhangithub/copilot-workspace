@@ -559,6 +559,7 @@ const stopDrag = () => {
                 title="重新生成内容"
               >
                 <Icon name="RotateCcw" :size="16" />
+                <span class="btn-label">重写</span>
               </button>
             </template>
           </div>
