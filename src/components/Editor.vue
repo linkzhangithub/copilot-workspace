@@ -292,7 +292,7 @@ onUnmounted(() => {
 .topic-wrapper {
   display: flex;
   gap: 14px;
-  align-items: flex-end;
+  align-items: center;
 }
 
 /* 标题容器 - 固定高度防止抖动 */
