@@ -5,6 +5,7 @@ import {
   Edit3,
   Trash2,
   Plus,
+  Minus,
   Sparkles,
   ChevronDown,
   Loader2,
@@ -275,7 +276,7 @@ const cleanTitle = (title) => {
   return title.replace(/^#+\s*/, "").trim();
 };
 
-const getDisplayNumber = (path) => path.map((p) => p + 1).join(".");
+const getDisplayNumber = (path) => path.map((p) => p + 1).join(".") + ".";
 
 // 拖拽相关函数
 const handleDragStart = (path, event) => {
@@ -373,23 +374,15 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
           @click="item.hasChildren ? toggleExpand(item.path) : null"
         >
           <div class="item-left">
-            <div
-              v-if="item.level === 0"
-              class="drag-handle"
-              :class="{ 'drag-handle-active': draggedIndex === item.path[0] }"
-            >
-              <Icon name="GripVertical" :size="18" />
-            </div>
-
+            <div class="outline-number">{{ getDisplayNumber(item.path) }}</div>
             <button
               v-if="item.hasChildren"
               class="expand-btn"
               :class="{ expanded: !item.isCollapsed }"
             >
-              <Icon name="ChevronDown" :size="16" />
+              <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
+              <Icon v-else name="Minus" :size="16" />
             </button>
-
-            <div class="item-number">{{ getDisplayNumber(item.path) }}</div>
 
             <div
               v-if="
@@ -416,6 +409,13 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
           </div>
 
           <div class="item-right" @click.stop>
+            <div
+              v-if="item.level === 0"
+              class="drag-handle"
+              :class="{ 'drag-handle-active': draggedIndex === item.path[0] }"
+            >
+              <Icon name="GripVertical" :size="18" />
+            </div>
             <button
               class="action-btn edit-btn"
               @click="startEdit(item.path)"
@@ -446,7 +446,7 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
             class="spinner"
           />
           <Icon v-else name="Sparkles" :size="16" />
-          <span>生成章节</span>
+          <span>生成小节</span>
         </button>
       </div>
     </div>
@@ -591,11 +591,11 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
 }
 
 .outline-item-wrapper-level-1 {
-  margin-left: 20px;
+  margin-left: 24px;
 }
 
 .outline-item-wrapper-level-2 {
-  margin-left: 40px;
+  margin-left: 48px;
 }
 
 .outline-item {
@@ -627,61 +627,49 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
 .item-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex: 1;
   min-width: 0;
+}
+
+.outline-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.outline-item-wrapper-level-1 .outline-number {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.outline-item-wrapper-level-2 .outline-number {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .expand-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 2px solid var(--primary);
-  background-color: var(--primary);
-  color: white;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 4px;
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 .expand-btn:hover {
-  background-color: var(--primary-hover);
-  transform: scale(1.05);
-}
-
-.expand-btn.expanded svg {
-  transform: rotate(180deg);
-}
-
-.item-number {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 45px;
-  width: auto;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.outline-item-level-1 .item-number {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
-  font-size: 11px;
-  min-width: 52px;
-}
-
-.outline-item-level-2 .item-number {
-  background: linear-gradient(135deg, var(--warning) 0%, var(--accent) 100%);
-  font-size: 11px;
-  min-width: 60px;
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .title-wrapper {

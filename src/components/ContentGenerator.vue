@@ -77,8 +77,18 @@ const cleanTitle = (title) => {
   return title.replace(/^#+\s*/, "").trim();
 };
 
-// 获取显示编号 (1, 1.1, 1.1.1)
-const getDisplayNumber = (path) => path.map(p => p + 1).join(".");
+// 获取显示编号
+const chineseNumbers = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+
+const getDisplayNumber = (path) => {
+  if (path.length === 1) {
+    return chineseNumbers[path[0]] + "、";
+  } else if (path.length === 2) {
+    return "(" + (path[1] + 1) + ")";
+  } else {
+    return (path[2] + 1) + ")";
+  }
+};
 
 // 获取操作描述
 const getOperationDesc = (op) => {
@@ -389,7 +399,7 @@ const stopDrag = () => {
       >
         <div class="section-header">
           <div class="header-left">
-            <div class="section-number">{{ getDisplayNumber(item.path) }}</div>
+            <div class="content-number">{{ getDisplayNumber(item.path) }}</div>
             <h3 
               v-if="item.level === 0" 
               class="main-title"
@@ -533,32 +543,52 @@ const stopDrag = () => {
   min-width: 0;
 }
 
+.content-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.level-1 .content-number {
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.level-2 .content-number {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .section-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
+  min-width: auto;
   width: auto;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-  color: white;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .level-1 .section-number {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
+  color: var(--text-secondary);
   font-size: 13px;
-  min-width: 56px;
 }
 
 .level-2 .section-number {
-  background: linear-gradient(135deg, var(--warning) 0%, var(--accent) 100%);
+  color: var(--text-tertiary);
   font-size: 12px;
-  min-width: 64px;
 }
 
 /* 主标题样式 */
@@ -727,58 +757,100 @@ const stopDrag = () => {
 .content-textarea {
   width: 100%;
   min-height: 240px;
-  padding: 18px 20px;
-  border: 2px solid var(--border);
+  padding: 20px 28px 20px 24px;
+  border: 1px solid var(--border);
   background-color: var(--bg-sidebar);
   color: var(--text-primary);
-  font-size: 15px;
-  line-height: 1.8;
+  font-size: 16px;
+  line-height: 1.85;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   outline: none;
-  resize: none;
-  overflow: auto;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  resize: vertical;
+  overflow-y: scroll;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }
 
+/* 自定义滚动条 - 一直显示，更细更淡，完全在圆角内 */
+.content-textarea::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.content-textarea::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 0 16px 16px 0;
+  margin: 16px 0;
+}
+
+.content-textarea::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: all 0.2s ease;
+}
+
+.content-textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
+
+/* 滚动条角落 - 透明，不干扰手柄 */
+.content-textarea::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 调整手柄样式 - 三角形样式，视觉上更大 */
+.content-textarea::-webkit-resizer {
+  background: 
+    linear-gradient(135deg, transparent 45%, #374151 45%),
+    linear-gradient(135deg, transparent 55%, #374151 55%),
+    linear-gradient(135deg, transparent 65%, #374151 65%);
+  background-size: 100% 100%, 85% 85%, 70% 70%;
+  background-position: bottom right, bottom right, bottom right;
+  background-repeat: no-repeat;
+  cursor: ns-resize;
+  opacity: 0.95;
+}
+
 .content-textarea:hover {
-  border-color: var(--text-muted);
-  background-color: var(--bg-hover);
+  border-color: var(--text-tertiary);
 }
 
 .content-textarea:focus {
   border-color: var(--primary);
-  background-color: var(--bg-sidebar);
-  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.1);
 }
 
 .content-placeholder {
-  padding: 48px 32px;
+  padding: 56px 40px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
   border: 2px dashed var(--border);
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--bg-sidebar) 0%, var(--bg-hover) 100%);
-  transition: all 0.3s ease;
+  border-radius: 20px;
+  background: linear-gradient(145deg, var(--bg-sidebar) 0%, var(--bg-hover) 100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .content-placeholder:hover {
   border-color: var(--primary);
-  background: linear-gradient(135deg, var(--bg-hover) 0%, var(--bg-sidebar) 100%);
+  background: linear-gradient(145deg, var(--bg-hover) 0%, var(--bg-sidebar) 100%);
 }
 
 .placeholder-icon {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  opacity: 0.6;
-  background-color: var(--bg-input);
-  border-radius: 16px;
+  color: var(--text-secondary);
+  background-color: var(--bg-hover);
+  border-radius: 14px;
   flex-shrink: 0;
 }
 
@@ -788,16 +860,16 @@ const stopDrag = () => {
 }
 
 .placeholder-text h4 {
-  margin: 0 0 8px 0;
-  font-size: 16px;
+  margin: 0 0 6px 0;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .placeholder-text p {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 14px;
+  font-size: 15px;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 </style>
