@@ -95,7 +95,7 @@ const generateOutline = async () => {
       { title: "概述", children: ["什么是" + props.project.name, "重要性"] },
       { title: "技术原理", children: ["核心技术", "工作流程"] },
       { title: "应用场景", children: ["场景一", "场景二"] },
-      { title: "未来展望", children: ["发展趋势", "挑战与机遇"] }
+      { title: "未来展望", children: ["发展趋势", "挑战与机遇"] },
     ];
     outline.value = addIdsToOutline(mockOutline);
   } finally {
@@ -295,7 +295,7 @@ onUnmounted(() => {
   align-items: flex-end;
 }
 
-/* 标题容器 */
+/* 标题容器 - 固定高度防止抖动 */
 .title-wrapper {
   display: flex;
   align-items: center;
@@ -308,6 +308,8 @@ onUnmounted(() => {
   background-color: var(--bg-sidebar);
   border: 2px solid var(--border);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 70px;
+  box-sizing: border-box;
 }
 
 /* hover 时背景加深 */
@@ -363,11 +365,18 @@ onUnmounted(() => {
   color: var(--text-primary);
   margin: 0;
   line-height: 1.2;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 0;
+  box-sizing: border-box;
+  height: 42px;
+  display: flex;
+  align-items: center;
 }
 
 .edit-title-input {
   width: 100%;
-  padding: 6px 10px;
+  padding: 0;
   border: 2px solid var(--primary);
   border-radius: 8px;
   background-color: var(--bg-input);
@@ -376,6 +385,8 @@ onUnmounted(() => {
   font-weight: 700;
   outline: none;
   line-height: 1.2;
+  box-sizing: border-box;
+  height: 42px;
 }
 
 .topic-hint {

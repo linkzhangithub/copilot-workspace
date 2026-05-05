@@ -1,169 +1,169 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import Input from './Input.vue'
-import Icon from './Icon.vue'
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import Input from "./Input.vue";
+import Icon from "./Icon.vue";
 
 const props = defineProps({
   projects: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   searchKeyword: {
     type: String,
-    default: ''
+    default: "",
   },
   selectedId: {
     type: [Number, null],
-    default: null
-  }
-})
+    default: null,
+  },
+});
 
 const emit = defineEmits([
-  'project-click',
-  'add-project',
-  'update-project',
-  'delete-project'
-])
+  "project-click",
+  "add-project",
+  "update-project",
+  "delete-project",
+]);
 
 // 状态
-const showNewProject = ref(false)
-const showItemMenuId = ref(null)
-const itemMenuPosition = ref({ x: 0, y: 0 })
-const newProjectName = ref('')
-const editingId = ref(null)
-const editingName = ref('')
-const menuRef = ref(null)
+const showNewProject = ref(false);
+const showItemMenuId = ref(null);
+const itemMenuPosition = ref({ x: 0, y: 0 });
+const newProjectName = ref("");
+const editingId = ref(null);
+const editingName = ref("");
+const menuRef = ref(null);
 
 // 过滤文章列表
 const filteredProjects = computed(() => {
-  if (!props.searchKeyword.trim()) return props.projects
-  const keyword = props.searchKeyword.toLowerCase()
-  return props.projects.filter((p) => p.name.toLowerCase().includes(keyword))
-})
+  if (!props.searchKeyword.trim()) return props.projects;
+  const keyword = props.searchKeyword.toLowerCase();
+  return props.projects.filter((p) => p.name.toLowerCase().includes(keyword));
+});
 
 // 重置所有编辑状态
 const resetEditStates = () => {
-  editingId.value = null
-  showItemMenuId.value = null
+  editingId.value = null;
+  showItemMenuId.value = null;
   if (showNewProject.value) {
-    showNewProject.value = false
-    newProjectName.value = ''
+    showNewProject.value = false;
+    newProjectName.value = "";
   }
-}
+};
 
 // 点击外部区域处理
 const handleClickOutside = (event) => {
   if (menuRef.value && menuRef.value.contains(event.target)) {
-    return
+    return;
   }
 
-  const newProjectBtn = event.target.closest('.new-project-btn')
+  const newProjectBtn = event.target.closest(".new-project-btn");
   if (newProjectBtn && !showNewProject.value) {
-    return
+    return;
   }
 
   if (showNewProject.value) {
-    const newProjectInput = event.target.closest('.new-project-input')
+    const newProjectInput = event.target.closest(".new-project-input");
     if (newProjectInput) {
-      return
+      return;
     }
   }
 
-  const menuBtn = event.target.closest('.item-menu-btn')
+  const menuBtn = event.target.closest(".item-menu-btn");
   if (menuBtn) {
-    return
+    return;
   }
 
-  resetEditStates()
-}
+  resetEditStates();
+};
 
 // Esc 键处理
 const handleEscKey = (event) => {
-  if (event.key === 'Escape') {
-    resetEditStates()
+  if (event.key === "Escape") {
+    resetEditStates();
   }
-}
+};
 
 // 添加新文章
 const addProject = () => {
   if (!newProjectName.value.trim()) {
-    showNewProject.value = false
-    return
+    showNewProject.value = false;
+    return;
   }
-  emit('add-project', newProjectName.value.trim())
-  newProjectName.value = ''
-  showNewProject.value = false
-}
+  emit("add-project", newProjectName.value.trim());
+  newProjectName.value = "";
+  showNewProject.value = false;
+};
 
 const cancelNewProject = () => {
-  showNewProject.value = false
-  newProjectName.value = ''
-}
+  showNewProject.value = false;
+  newProjectName.value = "";
+};
 
 const startNewProject = (e) => {
-  e.stopPropagation()
-  showNewProject.value = true
-}
+  e.stopPropagation();
+  showNewProject.value = true;
+};
 
 // 编辑文章
 const startEdit = (project) => {
-  editingId.value = project.id
-  editingName.value = project.name
-  showItemMenuId.value = null
-}
+  editingId.value = project.id;
+  editingName.value = project.name;
+  showItemMenuId.value = null;
+};
 
 const saveEdit = () => {
-  const project = props.projects.find((p) => p.id === editingId.value)
+  const project = props.projects.find((p) => p.id === editingId.value);
   if (project && editingName.value.trim()) {
-    emit('update-project', project.id, editingName.value.trim())
+    emit("update-project", project.id, editingName.value.trim());
   }
-  editingId.value = null
-}
+  editingId.value = null;
+};
 
 const cancelEdit = () => {
-  editingId.value = null
-}
+  editingId.value = null;
+};
 
 // 删除文章
 const deleteProject = (id, event) => {
-  event.stopPropagation()
-  if (confirm('确定要删除这篇文章吗？')) {
-    emit('delete-project', id)
-    showItemMenuId.value = null
+  event.stopPropagation();
+  if (confirm("确定要删除这篇文章吗？")) {
+    emit("delete-project", id);
+    showItemMenuId.value = null;
   }
-}
+};
 
 // 文章的三点菜单
 const toggleItemMenu = (project, event) => {
   if (showItemMenuId.value === project.id) {
-    showItemMenuId.value = null
+    showItemMenuId.value = null;
   } else {
-    showItemMenuId.value = project.id
-    const rect = event.target.getBoundingClientRect()
+    showItemMenuId.value = project.id;
+    const rect = event.target.getBoundingClientRect();
     itemMenuPosition.value = {
       x: rect.right - 140,
-      y: rect.bottom + 4
-    }
+      y: rect.bottom + 4,
+    };
   }
-}
+};
 
 // 点击文章
 const handleProjectClick = (project) => {
   if (showItemMenuId.value !== null || editingId.value !== null) {
-    resetEditStates()
+    resetEditStates();
   }
-  emit('project-click', project)
-}
+  emit("project-click", project);
+};
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  document.addEventListener('keydown', handleEscKey)
-})
+  document.addEventListener("click", handleClickOutside);
+  document.addEventListener("keydown", handleEscKey);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('keydown', handleEscKey)
-})
+  document.removeEventListener("click", handleClickOutside);
+  document.removeEventListener("keydown", handleEscKey);
+});
 </script>
 
 <template>
@@ -190,11 +190,9 @@ onUnmounted(() => {
         />
         <div class="new-project-actions">
           <button class="action-btn confirm" @click="addProject">
-            <Icon name="Check" :size="14" />
             创建
           </button>
           <button class="action-btn cancel" @click="cancelNewProject">
-            <Icon name="X" :size="14" />
             取消
           </button>
         </div>
@@ -253,12 +251,12 @@ onUnmounted(() => {
         class="item-menu-dropdown"
         :style="{
           left: `${itemMenuPosition.x}px`,
-          top: `${itemMenuPosition.y}px`
+          top: `${itemMenuPosition.y}px`,
         }"
       >
         <button
           class="menu-item"
-          @click.stop="startEdit(projects.find(p => p.id === showItemMenuId))"
+          @click.stop="startEdit(projects.find((p) => p.id === showItemMenuId))"
         >
           <Icon name="Pencil" :size="16" />
           <span>重命名</span>
@@ -335,20 +333,22 @@ onUnmounted(() => {
 .new-project-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .action-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   border: none;
   transition: all 0.15s ease;
+  text-align: center;
 }
 
 .action-btn.confirm {
@@ -488,7 +488,9 @@ onUnmounted(() => {
   background-color: var(--bg-sidebar);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   z-index: 9999;
   padding: 6px;

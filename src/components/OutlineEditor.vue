@@ -219,6 +219,8 @@ const cleanTitle = (title) => {
   background-color: var(--bg-sidebar);
   border: 2px solid var(--border);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 60px;
+  box-sizing: border-box;
 }
 
 .outline-item:hover {
@@ -274,7 +276,7 @@ const cleanTitle = (title) => {
 
 .edit-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 0;
   border: 2px solid var(--primary);
   border-radius: 8px;
   background-color: var(--bg-input);
@@ -282,6 +284,8 @@ const cleanTitle = (title) => {
   font-size: 15px;
   font-weight: 600;
   outline: none;
+  box-sizing: border-box;
+  height: 32px;
 }
 
 .item-right {
