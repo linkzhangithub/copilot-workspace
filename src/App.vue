@@ -47,6 +47,11 @@ const saveProjects = () => {
 
 const handleProjectClick = (project) => {
   selectedProject.value = project;
+  
+  // 在移动端时，点击项目后自动关闭侧边栏
+  if (window.innerWidth < 768) {
+    sidebarOpen.value = false;
+  }
 };
 
 const toggleSidebar = () => {
