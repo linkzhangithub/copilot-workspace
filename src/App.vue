@@ -340,7 +340,7 @@ onMounted(() => {
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
-    left: -240px;
+    left: -280px;
     top: 0;
     bottom: 0;
     z-index: 200;
@@ -667,6 +667,7 @@ onMounted(() => {
   .sidebar {
     width: 100%;
     max-width: 300px;
+    left: -300px;
   }
 
   .sidebar.open {
