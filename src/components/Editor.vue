@@ -648,11 +648,11 @@ onUnmounted(() => {
 /* ===== 响应式设计 - 移动端适配 ===== */
 @media (max-width: 768px) {
   .editor-content {
-    padding: 32px 20px;
+    padding: 28px 18px;
   }
 
   .topic-section {
-    margin-bottom: 32px;
+    margin-bottom: 28px;
   }
 
   .topic-wrapper {
@@ -667,12 +667,12 @@ onUnmounted(() => {
   }
 
   .project-title {
-    font-size: 26px;
+    font-size: 24px;
     height: 34px;
   }
 
   .edit-title-input {
-    font-size: 26px;
+    font-size: 24px;
     height: 34px;
   }
 
@@ -681,6 +681,7 @@ onUnmounted(() => {
     justify-content: center;
     height: 48px;
     padding: 10px 16px;
+    font-size: 14px;
   }
 
   .error-message {
@@ -696,7 +697,7 @@ onUnmounted(() => {
 
 @media (max-width: 480px) {
   .editor-content {
-    padding: 24px 16px;
+    padding: 20px 14px;
   }
 
   .topic-section {
@@ -709,12 +710,12 @@ onUnmounted(() => {
   }
 
   .project-title {
-    font-size: 22px;
+    font-size: 20px;
     height: 30px;
   }
 
   .edit-title-input {
-    font-size: 22px;
+    font-size: 20px;
     height: 30px;
   }
 

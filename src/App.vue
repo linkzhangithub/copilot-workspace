@@ -609,11 +609,25 @@ onMounted(() => {
   /* 顶部栏 */
   .topbar {
     padding: 0 12px;
-    gap: 12px;
+    gap: 10px;
   }
 
   .breadcrumb {
     font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .breadcrumb span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .breadcrumb-logo span {
+    display: none;
   }
 
   .export-btn span {
@@ -652,7 +666,7 @@ onMounted(() => {
 @media (max-width: 480px) {
   .sidebar {
     width: 100%;
-    max-width: 320px;
+    max-width: 300px;
   }
 
   .sidebar.open {
@@ -662,15 +676,22 @@ onMounted(() => {
   .topbar {
     height: 52px;
     padding: 0 10px;
+    gap: 8px;
   }
 
   .toggle-btn {
     width: 36px;
     height: 36px;
+    flex-shrink: 0;
   }
 
   .breadcrumb {
     font-size: 13px;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+    flex-shrink: 0;
   }
 
   .empty-state {
