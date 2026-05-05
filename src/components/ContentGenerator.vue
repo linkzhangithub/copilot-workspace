@@ -1087,7 +1087,7 @@ const stopDrag = () => {
     font-size: 12px;
   }
 
-  .action-btn .btn-label {
+  .action-btn svg {
     display: none;
   }
 

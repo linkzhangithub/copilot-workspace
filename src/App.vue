@@ -630,7 +630,7 @@ onMounted(() => {
     display: none;
   }
 
-  .export-btn span {
+  .export-btn svg {
     display: none;
   }
 
