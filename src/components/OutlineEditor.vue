@@ -838,9 +838,9 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   }
 
   .outline-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 16px;
   }
 

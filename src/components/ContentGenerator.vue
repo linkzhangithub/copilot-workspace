@@ -973,7 +973,7 @@ const stopDrag = () => {
 
   .header-actions {
     width: 100%;
-    justify-content: flex-start;
+    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 6px;
   }
