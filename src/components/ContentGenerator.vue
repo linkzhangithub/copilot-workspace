@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, nextTick, watch } from "vue";
 import Icon from "./Icon.vue";
 import { Play, Loader2, Sparkles, ZoomIn, ZoomOut, RotateCcw, FileText } from "lucide-vue-next";
 
@@ -19,6 +19,51 @@ const typingController = ref(null); // 用于中断打字效果
 
 // 存储每个 textarea 的高度
 const textareaHeights = ref({});
+
+// 检测是否是移动端
+const isMobile = ref(false);
+
+// 移动端最大高度（超过这个高度就固定并出现滚动条）
+const MOBILE_MAX_HEIGHT = 500;
+
+// 检测设备类型
+const checkIsMobile = () => {
+  isMobile.value = window.innerWidth <= 768;
+};
+
+// 自动调整 textarea 高度（移动端）
+const autoResizeTextarea = (path) => {
+  if (!isMobile.value) return;
+  
+  const pathKey = getPathKey(path);
+  const textarea = document.querySelector(`[data-path="${pathKey}"]`);
+  
+  if (textarea) {
+    // 先重置高度以便准确计算 scrollHeight
+    textarea.style.height = 'auto';
+    
+    // 设置为内容高度，但不超过最大高度
+    const contentHeight = textarea.scrollHeight;
+    if (contentHeight <= MOBILE_MAX_HEIGHT) {
+      textarea.style.height = contentHeight + 'px';
+      textarea.style.overflowY = 'hidden';
+    } else {
+      textarea.style.height = MOBILE_MAX_HEIGHT + 'px';
+      textarea.style.overflowY = 'scroll';
+    }
+  }
+};
+
+// 处理 textarea 输入事件
+const handleTextareaInput = (path, e) => {
+  updateSectionByPath(path, e.target.value);
+  if (isMobile.value) {
+    // 延迟一点确保 DOM 更新后再调整高度
+    nextTick(() => {
+      autoResizeTextarea(path);
+    });
+  }
+};
 
 // 打字机效果函数
 const typeWriter = async (fullText, onUpdate, speed = 30) => {
@@ -313,6 +358,13 @@ const generateSection = async (path) => {
 
     current[path[path.length - 1]].content = content;
     emit("update:outline", newOutline);
+    
+    // 如果是移动端，更新内容后自动调整高度
+    if (isMobile.value) {
+      nextTick(() => {
+        autoResizeTextarea(path);
+      });
+    }
   };
 
   try {
@@ -415,9 +467,19 @@ const rewriteSection = async (path, operation) => {
     }
     
     // 用打字机效果展示改写后的内容
-    updateSectionByPath(path, ""); // 先清空
+    const updateRewriteContent = (content) => {
+      updateSectionByPath(path, content);
+      // 如果是移动端，更新内容后自动调整高度
+      if (isMobile.value) {
+        nextTick(() => {
+          autoResizeTextarea(path);
+        });
+      }
+    };
+    
+    updateRewriteContent(""); // 先清空
     await typeWriter(newContent, (partialText) => {
-      updateSectionByPath(path, partialText);
+      updateRewriteContent(partialText);
     });
   } catch (err) {
     console.error("改写失败:", err);
@@ -432,9 +494,19 @@ const rewriteSection = async (path, operation) => {
     }
     
     // 也用打字机效果
-    updateSectionByPath(path, "");
+    const updateRewriteContentFallback = (content) => {
+      updateSectionByPath(path, content);
+      // 如果是移动端，更新内容后自动调整高度
+      if (isMobile.value) {
+        nextTick(() => {
+          autoResizeTextarea(path);
+        });
+      }
+    };
+    
+    updateRewriteContentFallback("");
     await typeWriter(newContent, (partialText) => {
-      updateSectionByPath(path, partialText);
+      updateRewriteContentFallback(partialText);
     });
   } finally {
     operatingPath.value = null;
@@ -472,6 +544,34 @@ const stopDrag = () => {
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', stopDrag);
 };
+
+// 生命周期钩子
+onMounted(() => {
+  checkIsMobile();
+  window.addEventListener('resize', checkIsMobile);
+  
+  // 初始化已有的内容区域高度
+  nextTick(() => {
+    flatContent.value.forEach(item => {
+      if (item.content && item.level > 0) {
+        autoResizeTextarea(item.path);
+      }
+    });
+  });
+});
+
+// 监听 outline 变化，更新内容高度
+watch(() => props.outline, () => {
+  if (isMobile.value) {
+    nextTick(() => {
+      flatContent.value.forEach(item => {
+        if (item.content && item.level > 0) {
+          autoResizeTextarea(item.path);
+        }
+      });
+    });
+  }
+}, { deep: true });
 </script>
 
 <template>
@@ -568,10 +668,12 @@ const stopDrag = () => {
           <div v-if="item.content" class="textarea-wrapper">
             <textarea 
               :value="item.content" 
-              @input="(e) => updateSectionByPath(item.path, e.target.value)" 
+              @input="(e) => handleTextareaInput(item.path, e)" 
               class="content-textarea" 
+              :class="{ 'content-textarea-mobile': isMobile }"
               placeholder="该章节暂无内容..."
-              :style="{ height: (textareaHeights[getPathKey(item.path)] || 240) + 'px' }"
+              :data-path="getPathKey(item.path)"
+              :style="!isMobile ? { height: (textareaHeights[getPathKey(item.path)] || 240) + 'px' } : {}"
             ></textarea>
           </div>
           <div v-else class="content-placeholder">
@@ -1019,6 +1121,23 @@ const stopDrag = () => {
     line-height: 1.75;
     min-height: 200px;
     border-radius: 14px;
+  }
+  
+  /* 移动端专用样式 - 自动高度模式 */
+  .content-textarea-mobile {
+    resize: none !important; /* 移动端不需要手动调整大小 */
+    min-height: 120px !important; /* 更小的最小高度 */
+    /* 滚动条样式优化 */
+  }
+  
+  /* 移动端滚动条样式（如果浏览器显示的话） */
+  .content-textarea-mobile::-webkit-scrollbar {
+    width: 6px !important;
+  }
+  
+  .content-textarea-mobile::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.4) !important;
+    border-radius: 3px !important;
   }
 
   .content-placeholder {
