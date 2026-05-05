@@ -31,11 +31,31 @@ const canExport = computed(() => {
 });
 
 // 给 outline 项目添加唯一 id
-const addIdsToOutline = (outline) => {
-  return outline.map((item, index) => ({
-    ...item,
-    id: item.id || `section-${Date.now()}-${index}`,
-  }));
+const addIdsToOutline = (outline, timestamp = Date.now()) => {
+  return outline.map((item, index) => {
+    // 如果 item 是字符串，转为对象
+    let processedItem;
+    if (typeof item === "string") {
+      processedItem = {
+        title: item,
+        children: [],
+      };
+    } else {
+      processedItem = { ...item };
+    }
+
+    const newItem = {
+      ...processedItem,
+      id: `section-${timestamp}-${index}`,
+    };
+    // 处理子章节
+    if (processedItem.children && processedItem.children.length > 0) {
+      newItem.children = addIdsToOutline(processedItem.children, timestamp);
+    } else {
+      newItem.children = [];
+    }
+    return newItem;
+  });
 };
 
 // 本地存储
@@ -66,10 +86,19 @@ const saveToStorage = () => {
   }
 };
 
+// 监听 project 变化，重置 outline
+watch(
+  () => props.project.id,
+  () => {
+    outline.value = [];
+    loadFromStorage();
+  },
+);
+
 // 大纲变化时自动保存
 watch(outline, saveToStorage, { deep: true });
 
-// 生成大纲
+// 生成大纲（带逐个显示效果，有内容时追加而不是覆盖）
 const generateOutline = async () => {
   error.value = "";
   loading.value = true;
@@ -83,21 +112,86 @@ const generateOutline = async () => {
 
     const result = await response.json();
 
-    if (result.success) {
-      outline.value = addIdsToOutline(result.data);
-    } else {
-      error.value = result.error || "生成大纲失败";
+    let outlineData = [];
+    if (result.success && result.data && Array.isArray(result.data)) {
+      // 只保留主标题，清除子标题
+      let rawData = result.data.map((item) => ({
+        title: item.title,
+        children: [],
+      }));
+      
+      // 前端再做一层去重和数量限制
+      const seen = new Set();
+      const deduplicated = [];
+      for (const item of rawData) {
+        const titleKey = item.title.trim().toLowerCase();
+        if (!seen.has(titleKey)) {
+          seen.add(titleKey);
+          deduplicated.push(item);
+        }
+      }
+      
+      outlineData = deduplicated.slice(0, 6);
     }
+    
+    // 确保无论如何都有数据
+    if (outlineData.length === 0) {
+      error.value = "生成大纲失败，使用默认数据";
+      outlineData = [
+        { title: "概述", children: [] },
+        { title: "技术原理", children: [] },
+        { title: "应用场景", children: [] },
+        { title: "未来展望", children: [] },
+      ];
+    }
+    
+    const timestamp = Date.now();
+    
+    // 如果大纲已有内容，直接追加；如果为空，从头生成
+    if (outline.value.length > 0) {
+      // 大纲已有内容，逐个追加新内容
+      const existingTitles = new Set(outline.value.map((item) => item.title.trim().toLowerCase()));
+      const newItems = outlineData.filter((item) => !existingTitles.has(item.title.trim().toLowerCase()));
+      
+      // 限制追加数量不超过3个
+      const limitedNewItems = newItems.slice(0, 3);
+      
+      for (let i = 0; i < limitedNewItems.length; i++) {
+        const newItem = {
+          ...limitedNewItems[i],
+          id: `section-${timestamp}-${i}`,
+        };
+        outline.value = [...outline.value, newItem];
+        
+        if (i < limitedNewItems.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    } else {
+      // 大纲为空，逐个显示所有章节
+      for (let i = 0; i < outlineData.length; i++) {
+        const newOutline = outlineData.slice(0, i + 1);
+        outline.value = addIdsToOutline(newOutline, timestamp);
+        
+        if (i < outlineData.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    }
+    
   } catch (err) {
     console.error("请求失败:", err);
-    // 先用 mock 数据
-    const mockOutline = [
-      { title: "概述", children: ["什么是" + props.project.name, "重要性"] },
-      { title: "技术原理", children: ["核心技术", "工作流程"] },
-      { title: "应用场景", children: ["场景一", "场景二"] },
-      { title: "未来展望", children: ["发展趋势", "挑战与机遇"] },
-    ];
-    outline.value = addIdsToOutline(mockOutline);
+    error.value = "生成大纲失败，请确保后端服务已启动";
+    // 如果API失败并且大纲为空，才使用fallback数据
+    if (outline.value.length === 0) {
+      const fallbackOutline = [
+        { title: "概述", children: [] },
+        { title: "技术原理", children: [] },
+        { title: "应用场景", children: [] },
+        { title: "未来展望", children: [] },
+      ];
+      outline.value = addIdsToOutline(fallbackOutline, Date.now());
+    }
   } finally {
     loading.value = false;
   }
@@ -116,12 +210,20 @@ const exportMarkdown = () => {
     markdown += `# ${props.project.name}\n\n`;
   }
 
-  outline.value.forEach((section, index) => {
-    markdown += `## ${section.title}\n\n`;
-    if (section.content) {
-      markdown += `${section.content}\n\n`;
-    }
-  });
+  const appendContent = (items, level = 1) => {
+    items.forEach((item) => {
+      const heading = "#".repeat(level + 1);
+      markdown += `${heading} ${item.title}\n\n`;
+      if (item.content) {
+        markdown += `${item.content}\n\n`;
+      }
+      if (item.children && item.children.length > 0) {
+        appendContent(item.children, level + 1);
+      }
+    });
+  };
+
+  appendContent(outline.value);
 
   const blob = new Blob([markdown], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);

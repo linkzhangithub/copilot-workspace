@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import Icon from "./Icon.vue";
 import { Play, Loader2, Sparkles, ZoomIn, ZoomOut, RotateCcw, FileText } from "lucide-vue-next";
 
@@ -12,18 +12,73 @@ const props = defineProps({
 
 const emit = defineEmits(["update:outline"]);
 
-const generatingIndex = ref(null);
-const operatingIndex = ref(null);
+const generatingPath = ref(null);
+const operatingPath = ref(null);
 const currentOperation = ref("");
+const typingController = ref(null); // 用于中断打字效果
 
 // 存储每个 textarea 的高度
 const textareaHeights = ref({});
+
+// 打字机效果函数
+const typeWriter = async (fullText, onUpdate, speed = 30) => {
+  return new Promise((resolve) => {
+    let index = 0;
+    let currentText = "";
+    
+    const type = () => {
+      if (index < fullText.length) {
+        // 每次可以多打几个字符，让效果更流畅
+        const charsToType = Math.min(3, fullText.length - index);
+        currentText += fullText.slice(index, index + charsToType);
+        index += charsToType;
+        onUpdate(currentText);
+        
+        // 随机延迟一点点，让打字更自然
+        const randomDelay = speed + Math.random() * 20;
+        setTimeout(type, randomDelay);
+      } else {
+        resolve();
+      }
+    };
+    
+    type();
+  });
+};
+
+// 将嵌套数组扁平化为带路径的数组
+const flatContent = computed(() => {
+  const result = [];
+  
+  const flatten = (items, path = [], level = 0) => {
+    items.forEach((item, index) => {
+      const currentPath = [...path, index];
+      result.push({
+        ...item,
+        path: currentPath,
+        level,
+      });
+      if (item.children && item.children.length > 0) {
+        flatten(item.children, currentPath, level + 1);
+      }
+    });
+  };
+  
+  flatten(props.outline);
+  return result;
+});
+
+// 路径转字符串 key
+const getPathKey = (path) => path.join("-");
 
 // 清理标题中的 markdown 标记
 const cleanTitle = (title) => {
   if (!title) return title;
   return title.replace(/^#+\s*/, "").trim();
 };
+
+// 获取显示编号 (1, 1.1, 1.1.1)
+const getDisplayNumber = (path) => path.map(p => p + 1).join(".");
 
 // 获取操作描述
 const getOperationDesc = (op) => {
@@ -36,73 +91,224 @@ const getOperationDesc = (op) => {
   return map[op] || "处理中";
 };
 
-// 生成章节内容（接入真实 API）
-const generateSection = async (index) => {
-  if (generatingIndex.value !== null) return;
-  if (operatingIndex.value !== null) return;
+// 通过路径更新章节内容
+const updateSectionByPath = (path, content) => {
+  const deepClone = (arr) => {
+    return arr.map(item => ({
+      ...item,
+      children: item.children ? deepClone(item.children) : [],
+    }));
+  };
+  const newOutline = deepClone(props.outline);
+  let current = newOutline;
+  for (let i = 0; i < path.length - 1; i++) {
+    current = current[path[i]].children;
+  }
+  current[path[path.length - 1]] = { ...current[path[path.length - 1]], content };
+  emit("update:outline", newOutline);
+};
 
-  generatingIndex.value = index;
+// 流式请求工具函数
+const streamRequest = async (url, body, onData, onComplete, onError) => {
+  try {
+    console.log("正在调用流式API:", url);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    console.log("响应状态:", response.status, response.statusText);
+    
+    if (!response.ok) {
+      throw new Error(`请求失败: ${response.status}`);
+    }
+
+    // 检查是否是流式响应
+    const contentType = response.headers.get('content-type');
+    console.log("响应类型:", contentType);
+    
+    if (!contentType || !contentType.includes('text/event-stream')) {
+      console.log("不是流式响应，使用普通响应");
+      const result = await response.json();
+      if (result.success && result.data) {
+        onData(result.data);
+        onComplete(result.data);
+      } else {
+        throw new Error("响应格式错误");
+      }
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+    let buffer = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      
+      // 保留最后一个不完整的行在 buffer 中
+      buffer = lines.pop() || "";
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        
+        if (trimmed.startsWith("data: ")) {
+          const data = trimmed.slice(6).trim();
+          
+          if (data === "[DONE]") {
+            continue;
+          }
+          
+          try {
+            const json = JSON.parse(data);
+            if (json.content) {
+              fullText += json.content;
+              onData(fullText);
+            }
+          } catch (e) {
+            // 可能不是完整的JSON，继续等待
+          }
+        }
+      }
+    }
+
+    onComplete(fullText);
+  } catch (err) {
+    console.error("流式请求失败:", err);
+    onError(err);
+  }
+};
+
+// 生成章节内容（带打字机效果）
+const generateSection = async (path) => {
+  if (generatingPath.value !== null) return;
+  if (operatingPath.value !== null) return;
+
+  const pathKey = getPathKey(path);
+  generatingPath.value = pathKey;
+
+  const updateContent = (content) => {
+    const deepClone = (arr) => {
+      return arr.map(item => ({
+        ...item,
+        children: item.children ? deepClone(item.children) : [],
+      }));
+    };
+
+    const newOutline = deepClone(props.outline);
+    let current = newOutline;
+    
+    for (let i = 0; i < path.length - 1; i++) {
+      current = current[path[i]].children;
+    }
+
+    current[path[path.length - 1]].content = content;
+    emit("update:outline", newOutline);
+  };
 
   try {
+    console.log("开始生成内容，path:", path);
     const response = await fetch("/api/ai/generate-content-simple", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        outline: props.outline, 
-        sectionIndex: index 
+      body: JSON.stringify({
+        outline: props.outline,
+        sectionIndex: path[0] // 使用第一个路径索引作为sectionIndex
       }),
     });
 
+    console.log("API响应状态:", response.status);
     const result = await response.json();
-
-    let content;
-    if (result.success) {
-      content = result.data;
+    console.log("API响应数据:", result);
+    
+    let fullContent = "";
+    if (result.success && result.data) {
+      fullContent = result.data;
     } else {
-      content = `${cleanTitle(props.outline[index].title)}\n\n这是一段示例内容，用于演示编辑和生成功能。`;
+      // 最终fallback
+      let current = props.outline;
+      for (let i = 0; i < path.length - 1; i++) {
+        current = current[path[i]].children;
+      }
+      const section = current[path[path.length - 1]];
+      fullContent = `这是关于"${section.title}"的详细内容。
+
+在这里可以展开说明相关的细节、例子、和注意事项等。`;
     }
     
-    const newOutline = [...props.outline];
-    newOutline[index] = { ...newOutline[index], content };
-    emit("update:outline", newOutline);
-  } catch (err) {
-    console.error("生成失败:", err);
-    const mockContent = `${cleanTitle(props.outline[index].title)}\n\n这是一段示例内容，用于演示编辑和生成功能。`;
+    // 使用打字机效果逐字显示
+    updateContent(""); // 先清空
+    await typeWriter(fullContent, (partialText) => {
+      updateContent(partialText);
+    });
     
-    const newOutline = [...props.outline];
-    newOutline[index] = { ...newOutline[index], content: mockContent };
-    emit("update:outline", newOutline);
+  } catch (err) {
+    console.error("生成失败，使用fallback:", err);
+    
+    // 最后fallback，也用打字机效果
+    let current = props.outline;
+    for (let i = 0; i < path.length - 1; i++) {
+      current = current[path[i]].children;
+    }
+    const section = current[path[path.length - 1]];
+    const fullContent = `这是关于"${section.title}"的详细内容。
+
+在这里可以展开说明相关的细节、例子、和注意事项等。`;
+    
+    updateContent("");
+    await typeWriter(fullContent, (partialText) => {
+      updateContent(partialText);
+    });
+    
   } finally {
-    generatingIndex.value = null;
+    generatingPath.value = null;
   }
 };
 
 // 改写内容（接入真实 API）
-const rewriteSection = async (index, operation) => {
-  const section = props.outline[index];
+const rewriteSection = async (path, operation) => {
+  const pathKey = getPathKey(path);
+  
+  // 找到对应章节
+  let current = props.outline;
+  for (let i = 0; i < path.length - 1; i++) {
+    current = current[path[i]].children;
+  }
+  const section = current[path[path.length - 1]];
+  
   if (!section.content) return;
-  if (generatingIndex.value !== null) return;
-  if (operatingIndex.value !== null) return;
+  if (generatingPath.value !== null) return;
+  if (operatingPath.value !== null) return;
 
-  operatingIndex.value = index;
+  operatingPath.value = pathKey;
   currentOperation.value = operation;
 
   try {
+    // 调用API
     const response = await fetch("/api/ai/rewrite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        content: section.content, 
-        operation 
+      body: JSON.stringify({
+        content: section.content,
+        operation: operation
       }),
     });
 
     const result = await response.json();
-
+    
     let newContent = section.content;
-    if (result.success) {
+    if (result.success && result.data) {
       newContent = result.data;
     } else {
+      // 如果API失败，使用fallback
       if (operation === "polish") {
         newContent = section.content + "\n\n（已润色）";
       } else if (operation === "expand") {
@@ -112,51 +318,61 @@ const rewriteSection = async (index, operation) => {
       }
     }
     
-    const newOutline = [...props.outline];
-    newOutline[index] = { ...newOutline[index], content: newContent };
-    emit("update:outline", newOutline);
+    // 用打字机效果展示改写后的内容
+    updateSectionByPath(path, ""); // 先清空
+    await typeWriter(newContent, (partialText) => {
+      updateSectionByPath(path, partialText);
+    });
   } catch (err) {
     console.error("改写失败:", err);
+    // 如果API失败，使用fallback
+    let newContent = section.content;
+    if (operation === "polish") {
+      newContent = section.content + "\n\n（已润色）";
+    } else if (operation === "expand") {
+      newContent = section.content + "\n\n（已扩写）这段是新增的扩展内容。";
+    } else if (operation === "shorten") {
+      newContent = section.content.slice(0, 50) + "...\n（已缩写）";
+    }
+    
+    // 也用打字机效果
+    updateSectionByPath(path, "");
+    await typeWriter(newContent, (partialText) => {
+      updateSectionByPath(path, partialText);
+    });
   } finally {
-    operatingIndex.value = null;
+    operatingPath.value = null;
     currentOperation.value = "";
   }
-};
-
-// 更新章节内容
-const updateSectionContent = (index, content) => {
-  const newOutline = [...props.outline];
-  newOutline[index] = { ...newOutline[index], content };
-  emit("update:outline", newOutline);
 };
 
 // 自定义拖拽功能
 const isDragging = ref(false);
 const dragStartY = ref(0);
-const dragIndex = ref(null);
+const dragPathKey = ref(null);
 const dragStartHeight = ref(0);
 
-const startDrag = (e, index) => {
+const startDrag = (e, pathKey) => {
   isDragging.value = true;
-  dragIndex.value = index;
+  dragPathKey.value = pathKey;
   dragStartY.value = e.clientY;
-  dragStartHeight.value = textareaHeights.value[index] || 200;
+  dragStartHeight.value = textareaHeights.value[pathKey] || 200;
   
   document.addEventListener('mousemove', onDrag);
   document.addEventListener('mouseup', stopDrag);
 };
 
 const onDrag = (e) => {
-  if (!isDragging.value || dragIndex.value === null) return;
+  if (!isDragging.value || dragPathKey.value === null) return;
   
   const deltaY = e.clientY - dragStartY.value;
   const newHeight = Math.max(200, dragStartHeight.value + deltaY);
-  textareaHeights.value[dragIndex.value] = newHeight;
+  textareaHeights.value[dragPathKey.value] = newHeight;
 };
 
 const stopDrag = () => {
   isDragging.value = false;
-  dragIndex.value = null;
+  dragPathKey.value = null;
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', stopDrag);
 };
@@ -165,34 +381,50 @@ const stopDrag = () => {
 <template>
   <div class="content-generator">
     <div class="sections-list">
-      <div v-for="(section, index) in outline" :key="section.id || index" class="section-item">
+      <div 
+        v-for="(item, idx) in flatContent" 
+        :key="getPathKey(item.path)" 
+        class="section-item"
+        :class="`level-${item.level}`"
+      >
         <div class="section-header">
           <div class="header-left">
-            <div class="section-number">{{ index + 1 }}</div>
-            <h3 class="section-title">{{ cleanTitle(section.title) }}</h3>
+            <div class="section-number">{{ getDisplayNumber(item.path) }}</div>
+            <h3 
+              v-if="item.level === 0" 
+              class="main-title"
+            >
+              {{ cleanTitle(item.title) }}
+            </h3>
+            <h4 
+              v-else 
+              class="subsection-title"
+            >
+              {{ cleanTitle(item.title) }}
+            </h4>
           </div>
-          <div class="header-actions">
+          <div v-if="item.level > 0" class="header-actions">
             <button 
-              v-if="!section.content && generatingIndex !== index" 
+              v-if="!item.content && generatingPath !== getPathKey(item.path)" 
               class="action-btn generate-btn" 
-              @click="generateSection(index)"
+              @click="generateSection(item.path)"
             >
               <Icon name="Play" :size="16" />
               <span class="btn-label">生成内容</span>
             </button>
             <button 
-              v-else-if="generatingIndex === index" 
+              v-else-if="generatingPath === getPathKey(item.path)" 
               class="action-btn generating-btn" 
               disabled
             >
               <Icon name="Loader2" :size="16" class="spinner" />
               <span class="btn-label">生成中...</span>
             </button>
-            <template v-else-if="section.content">
+            <template v-else-if="item.content">
               <button 
-                v-if="operatingIndex !== index"
+                v-if="operatingPath !== getPathKey(item.path)"
                 class="action-btn polish-btn" 
-                @click="rewriteSection(index, 'polish')" 
+                @click="rewriteSection(item.path, 'polish')" 
                 title="润色优化内容"
               >
                 <Icon name="Sparkles" :size="16" />
@@ -207,27 +439,27 @@ const stopDrag = () => {
                 <span class="btn-label">{{ getOperationDesc(currentOperation) }}</span>
               </button>
               <button 
-                v-if="operatingIndex !== index"
+                v-if="operatingPath !== getPathKey(item.path)"
                 class="action-btn expand-btn" 
-                @click="rewriteSection(index, 'expand')" 
+                @click="rewriteSection(item.path, 'expand')" 
                 title="扩写丰富内容"
               >
                 <Icon name="ZoomIn" :size="16" />
                 <span class="btn-label">扩写</span>
               </button>
               <button 
-                v-if="operatingIndex !== index"
+                v-if="operatingPath !== getPathKey(item.path)"
                 class="action-btn shorten-btn" 
-                @click="rewriteSection(index, 'shorten')" 
+                @click="rewriteSection(item.path, 'shorten')" 
                 title="缩写精简内容"
               >
                 <Icon name="ZoomOut" :size="16" />
                 <span class="btn-label">缩写</span>
               </button>
               <button 
-                v-if="operatingIndex !== index"
+                v-if="operatingPath !== getPathKey(item.path)"
                 class="action-btn regenerate-btn" 
-                @click="generateSection(index)" 
+                @click="generateSection(item.path)" 
                 title="重新生成内容"
               >
                 <Icon name="RotateCcw" :size="16" />
@@ -235,14 +467,14 @@ const stopDrag = () => {
             </template>
           </div>
         </div>
-        <div class="section-content">
-          <div v-if="section.content" class="textarea-wrapper">
+        <div v-if="item.level > 0" class="section-content">
+          <div v-if="item.content" class="textarea-wrapper">
             <textarea 
-              :value="section.content" 
-              @input="(e) => updateSectionContent(index, e.target.value)" 
+              :value="item.content" 
+              @input="(e) => updateSectionByPath(item.path, e.target.value)" 
               class="content-textarea" 
               placeholder="该章节暂无内容..."
-              :style="{ height: (textareaHeights[index] || 240) + 'px' }"
+              :style="{ height: (textareaHeights[getPathKey(item.path)] || 240) + 'px' }"
             ></textarea>
           </div>
           <div v-else class="content-placeholder">
@@ -277,6 +509,15 @@ const stopDrag = () => {
   gap: 16px;
 }
 
+/* 层级缩进 */
+.level-1 {
+  margin-left: 24px;
+}
+
+.level-2 {
+  margin-left: 48px;
+}
+
 .section-header {
   display: flex;
   align-items: flex-start;
@@ -296,20 +537,47 @@ const stopDrag = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  min-width: 48px;
+  width: auto;
   height: 36px;
+  padding: 0 14px;
   border-radius: 10px;
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   color: white;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   flex-shrink: 0;
 }
 
-.section-title {
+.level-1 .section-number {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
+  font-size: 13px;
+  min-width: 56px;
+}
+
+.level-2 .section-number {
+  background: linear-gradient(135deg, var(--warning) 0%, var(--accent) 100%);
+  font-size: 12px;
+  min-width: 64px;
+}
+
+/* 主标题样式 */
+.main-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 8px 0;
+}
+
+/* 子标题样式 */
+.subsection-title {
   font-size: 18px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -448,7 +716,7 @@ const stopDrag = () => {
 }
 
 .section-content {
-  padding-left: 48px;
+  padding-left: 60px;
 }
 
 /* textarea 容器 */
