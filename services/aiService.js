@@ -226,13 +226,20 @@ class AIService {
         role: "user",
         content: `${articleContent}
 
-请从以下5个维度评价这篇文章，每个维度用50字以内概括评价，直接给出评价不要解释：
+请从以下5个维度评价这篇文章，每个维度用50字以内概括评价，并给出0-20分的分数（总分20分），直接给出评价不要解释：
 
 1. 大纲结构
 2. 章节内容
 3. 逻辑严密性
 4. 内容质量
-5. 表达清晰度`,
+5. 表达清晰度
+
+请严格按照以下格式输出：
+1. 大纲结构：评价内容 | 分数
+2. 章节内容：评价内容 | 分数
+3. 逻辑严密性：评价内容 | 分数
+4. 内容质量：评价内容 | 分数
+5. 表达清晰度：评价内容 | 分数`,
       },
     ];
 
@@ -240,7 +247,7 @@ class AIService {
       const response = await this.client.chatCompletions({
         model: this.model,
         messages,
-        temperature: 0.3,
+        temperature: 0.1,
         max_tokens: 1000,
       });
 
@@ -249,16 +256,21 @@ class AIService {
 
       console.log("AI完整返回:", result);
 
-      // 解析各个维度的评价
+      // 解析各个维度的评价和分数
       const evaluations = {
         structure: "文章结构需要完善。",
         content: "内容充实度需要提升。",
         logic: "文章逻辑需要优化。",
         quality: "内容质量有待提高。",
         clarity: "表达清晰度需要改进。",
+        structureScore: 0,
+        contentScore: 0,
+        logicScore: 0,
+        qualityScore: 0,
+        clarityScore: 0,
       };
 
-      // 解析格式：1. 大纲结构：评价内容
+      // 解析格式：1. 大纲结构：评价内容 | 分数
       const parsePattern = (tag) => {
         const regex = new RegExp(
           `\\d+\\.\\s*${tag}：(.*?)(?=\\n\\d+\\.|$)`,
@@ -267,21 +279,65 @@ class AIService {
         const match = result.match(regex);
         if (match && match[1]) {
           let text = match[1].trim();
-          // 清理评价，去掉多余的换行
+          let score = 0;
+
+          // 尝试分离评价内容和分数
+          const parts = text.split("|");
+          if (parts.length >= 2) {
+            text = parts[0].trim();
+            // 提取分数
+            const scoreMatch = parts[1].match(/(\d+)/);
+            if (scoreMatch) {
+              score = Math.min(20, Math.max(0, parseInt(scoreMatch[1])));
+            }
+          } else {
+            // 如果没有分数分隔符，尝试从文本末尾提取分数
+            const scoreMatch = text.match(/(\d+)\s*分?\s*$/);
+            if (scoreMatch) {
+              score = Math.min(20, Math.max(0, parseInt(scoreMatch[1])));
+              text = text.replace(/\d+\s*分?\s*$/, "").trim();
+            }
+          }
+
+          // 清理评价
           text = text.replace(/\n/g, " ");
           if (text.length > 50) {
             text = text.substring(0, 50);
           }
-          return text;
+          return { text, score };
         }
         return null;
       };
 
-      evaluations.structure = parsePattern("大纲结构") || evaluations.structure;
-      evaluations.content = parsePattern("章节内容") || evaluations.content;
-      evaluations.logic = parsePattern("逻辑严密性") || evaluations.logic;
-      evaluations.quality = parsePattern("内容质量") || evaluations.quality;
-      evaluations.clarity = parsePattern("表达清晰度") || evaluations.clarity;
+      const structureResult = parsePattern("大纲结构");
+      if (structureResult) {
+        evaluations.structure = structureResult.text;
+        evaluations.structureScore = structureResult.score;
+      }
+
+      const contentResult = parsePattern("章节内容");
+      if (contentResult) {
+        evaluations.content = contentResult.text;
+        evaluations.contentScore = contentResult.score;
+      }
+
+      const logicResult = parsePattern("逻辑严密性");
+      if (logicResult) {
+        evaluations.logic = logicResult.text;
+        evaluations.logicScore = logicResult.score;
+      }
+
+      const qualityResult = parsePattern("内容质量");
+      if (qualityResult) {
+        evaluations.quality = qualityResult.text;
+        evaluations.qualityScore = qualityResult.score;
+      }
+
+      const clarityResult = parsePattern("表达清晰度");
+      if (clarityResult) {
+        evaluations.clarity = clarityResult.text;
+        evaluations.clarityScore = clarityResult.score;
+      }
 
       console.log("解析后的评价:", evaluations);
       return evaluations;

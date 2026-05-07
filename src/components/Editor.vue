@@ -46,7 +46,82 @@ const qualityResults = ref({
   quality: "",
   clarity: "",
 });
+const qualityScores = ref({
+  structure: 0,
+  content: 0,
+  logic: 0,
+  quality: 0,
+  clarity: 0,
+});
 const currentStep = ref(-1); // -1=未开始, 0-4=当前步骤
+
+// 保存上一次的质检结果和文章内容 - 按项目ID持久化
+const getQualityCheckStorageKey = () => `quality-check-${props.project.id}`;
+const lastQualityCheck = ref({
+  articleContent: "",
+  results: null,
+  scores: null,
+});
+
+// 加载项目质检记录
+const loadQualityCheckRecord = () => {
+  try {
+    const saved = localStorage.getItem(getQualityCheckStorageKey());
+    if (saved) {
+      const data = JSON.parse(saved);
+      lastQualityCheck.value = data;
+      console.log("已加载项目质检记录:", props.project.id, data);
+    } else {
+      // 没有记录时重置
+      lastQualityCheck.value = {
+        articleContent: "",
+        results: null,
+        scores: null,
+      };
+    }
+  } catch (e) {
+    console.error("加载质检记录失败:", e);
+    lastQualityCheck.value = {
+      articleContent: "",
+      results: null,
+      scores: null,
+    };
+  }
+};
+
+// 保存项目质检记录
+const saveQualityCheckRecord = () => {
+  try {
+    localStorage.setItem(
+      getQualityCheckStorageKey(),
+      JSON.stringify(lastQualityCheck.value),
+    );
+    console.log(
+      "已保存项目质检记录:",
+      props.project.id,
+      lastQualityCheck.value,
+    );
+  } catch (e) {
+    console.error("保存质检记录失败:", e);
+  }
+};
+
+// 判断是否可以显示质检报告（内容未变化且有结果）
+const canShowQualityReport = computed(() => {
+  if (!lastQualityCheck.value.results || !lastQualityCheck.value.scores)
+    return false;
+  const currentContent = generateFullMarkdown();
+  return currentContent === lastQualityCheck.value.articleContent;
+});
+
+// 根据分数获取样式类
+const getScoreClass = (score) => {
+  if (score >= 17) return "score-excellent";
+  if (score >= 13) return "score-good";
+  if (score >= 9) return "score-medium";
+  if (score >= 5) return "score-poor";
+  return "score-bad";
+};
 
 // 计算导出按钮是否可用
 const canExport = computed(() => {
@@ -280,8 +355,39 @@ const generateFullMarkdown = () => {
   return markdown;
 };
 
+// 直接显示上次的质检结果
+const showPreviousQualityCheck = () => {
+  if (!lastQualityCheck.value.results || !lastQualityCheck.value.scores) return;
+
+  showQualityCheck.value = true;
+  showLoadingState.value = false;
+  qualityCheckLoading.value = false;
+
+  // 直接设置结果
+  qualityResults.value = { ...lastQualityCheck.value.results };
+  qualityScores.value = { ...lastQualityCheck.value.scores };
+  currentStep.value = 5;
+
+  // 显示所有项目
+  visibleItems.value = [true, true, true, true, true];
+};
+
 // 智能文章质检
 const startQualityCheck = async () => {
+  // 生成完整markdown内容
+  const fullMarkdown = generateFullMarkdown();
+
+  // 检查是否和上次内容一样，如果是且有结果，直接显示
+  if (
+    fullMarkdown === lastQualityCheck.value.articleContent &&
+    lastQualityCheck.value.results &&
+    lastQualityCheck.value.scores
+  ) {
+    showPreviousQualityCheck();
+    return;
+  }
+
+  // 内容有变化，重新质检
   showQualityCheck.value = true;
   showLoadingState.value = true;
   qualityCheckLoading.value = true;
@@ -293,6 +399,13 @@ const startQualityCheck = async () => {
     logic: "",
     quality: "",
     clarity: "",
+  };
+  qualityScores.value = {
+    structure: 0,
+    content: 0,
+    logic: 0,
+    quality: 0,
+    clarity: 0,
   };
   currentStep.value = -1;
 
@@ -321,9 +434,6 @@ const startQualityCheck = async () => {
   ];
 
   try {
-    // 生成完整markdown内容
-    const fullMarkdown = generateFullMarkdown();
-
     console.log("=========================================");
     console.log("开始智能质检！");
     console.log("=========================================");
@@ -364,7 +474,12 @@ const startQualityCheck = async () => {
     for (let i = 0; i < dimensions.length; i++) {
       const dim = dimensions[i];
       const text = evaluations[dim.key] || "评价加载失败";
+      const scoreKey = `${dim.key}Score`;
+      const score = evaluations[scoreKey] || 0;
       currentStep.value = i;
+
+      // 先保存分数
+      qualityScores.value[dim.key] = score;
 
       // 如果不是第一项，等200ms显示下一项
       if (i > 0) {
@@ -381,6 +496,15 @@ const startQualityCheck = async () => {
 
     // 全部完成
     currentStep.value = 5;
+
+    // 保存本次结果和文章内容
+    lastQualityCheck.value = {
+      articleContent: fullMarkdown,
+      results: { ...qualityResults.value },
+      scores: { ...qualityScores.value },
+    };
+    // 持久化到 localStorage
+    saveQualityCheckRecord();
   } catch (error) {
     console.error("质检失败:", error);
   } finally {
@@ -536,7 +660,10 @@ const exportMarkdown = () => {
 };
 
 // 编辑标题
-const startEditTitle = () => {
+const startEditTitle = (e) => {
+  console.log("startEditTitle 被调用", e);
+  e.stopPropagation(); // 阻止事件冒泡
+  if (isEditingTitle.value) return;
   isEditingTitle.value = true;
   editingTitle.value = props.project.name;
   nextTick(() => {
@@ -575,12 +702,42 @@ defineExpose({
 
 onMounted(() => {
   loadFromStorage();
+  // 加载质检记录
+  loadQualityCheckRecord();
   document.addEventListener("click", handleGlobalClick);
 });
 
 onUnmounted(() => {
   document.removeEventListener("click", handleGlobalClick);
 });
+
+// 监听项目 ID 变化，重新加载质检记录
+watch(
+  () => props.project.id,
+  () => {
+    console.log("项目 ID 变化，重新加载质检记录:", props.project.id);
+    loadQualityCheckRecord();
+    // 重置状态
+    showQualityCheck.value = false;
+    showLoadingState.value = true;
+    visibleItems.value = [false, false, false, false, false];
+    qualityResults.value = {
+      structure: "",
+      content: "",
+      logic: "",
+      quality: "",
+      clarity: "",
+    };
+    qualityScores.value = {
+      structure: 0,
+      content: 0,
+      logic: 0,
+      quality: 0,
+      clarity: 0,
+    };
+    currentStep.value = -1;
+  },
+);
 </script>
 
 <template>
@@ -599,7 +756,7 @@ onUnmounted(() => {
           <div
             class="title-wrapper"
             ref="editTitleWrapper"
-            @dblclick="!isEditingTitle && startEditTitle()"
+            @click="startEditTitle($event)"
           >
             <!-- 编辑状态 -->
             <div v-if="isEditingTitle" class="edit-wrapper" @click.stop>
@@ -615,18 +772,6 @@ onUnmounted(() => {
             </div>
             <!-- 非编辑状态 -->
             <h1 v-else class="project-title">{{ project.name }}</h1>
-
-            <!-- 编辑按钮区域 -->
-            <div class="topic-right">
-              <button
-                v-if="!isEditingTitle"
-                class="edit-btn"
-                @click.stop="startEditTitle"
-                title="编辑标题"
-              >
-                <Icon name="Edit3" :size="16" />
-              </button>
-            </div>
           </div>
           <button
             class="generate-btn"
@@ -645,7 +790,7 @@ onUnmounted(() => {
           >
             <Icon v-if="!qualityCheckLoading" name="CheckSquare" :size="18" />
             <Icon v-else name="Loader2" :size="18" class="spinner" />
-            <span>智能质检</span>
+            <span>{{ canShowQualityReport ? "质检报告" : "智能质检" }}</span>
           </button>
         </div>
         <p v-if="outline.length === 0" class="topic-hint">
@@ -717,9 +862,17 @@ onUnmounted(() => {
                     <span class="quality-name">大纲结构</span>
                   </div>
                   <div class="quality-result">
-                    {{ qualityResults.structure }}
+                    <span class="quality-result-content">{{
+                      qualityResults.structure
+                    }}</span>
                   </div>
-                  <div class="quality-score"></div>
+                  <div
+                    class="quality-score"
+                    :class="getScoreClass(qualityScores.structure)"
+                  >
+                    {{ qualityScores.structure
+                    }}<span class="score-total">/20</span>
+                  </div>
                 </div>
                 <div v-if="visibleItems[1]" key="1" class="quality-item">
                   <div class="quality-item-left">
@@ -744,8 +897,18 @@ onUnmounted(() => {
                     </div>
                     <span class="quality-name">章节内容</span>
                   </div>
-                  <div class="quality-result">{{ qualityResults.content }}</div>
-                  <div class="quality-score"></div>
+                  <div class="quality-result">
+                    <span class="quality-result-content">{{
+                      qualityResults.content
+                    }}</span>
+                  </div>
+                  <div
+                    class="quality-score"
+                    :class="getScoreClass(qualityScores.content)"
+                  >
+                    {{ qualityScores.content
+                    }}<span class="score-total">/20</span>
+                  </div>
                 </div>
                 <div v-if="visibleItems[2]" key="2" class="quality-item">
                   <div class="quality-item-left">
@@ -770,8 +933,18 @@ onUnmounted(() => {
                     </div>
                     <span class="quality-name">逻辑严密性</span>
                   </div>
-                  <div class="quality-result">{{ qualityResults.logic }}</div>
-                  <div class="quality-score"></div>
+                  <div class="quality-result">
+                    <span class="quality-result-content">{{
+                      qualityResults.logic
+                    }}</span>
+                  </div>
+                  <div
+                    class="quality-score"
+                    :class="getScoreClass(qualityScores.logic)"
+                  >
+                    {{ qualityScores.logic
+                    }}<span class="score-total">/20</span>
+                  </div>
                 </div>
                 <div v-if="visibleItems[3]" key="3" class="quality-item">
                   <div class="quality-item-left">
@@ -796,8 +969,18 @@ onUnmounted(() => {
                     </div>
                     <span class="quality-name">内容质量</span>
                   </div>
-                  <div class="quality-result">{{ qualityResults.quality }}</div>
-                  <div class="quality-score"></div>
+                  <div class="quality-result">
+                    <span class="quality-result-content">{{
+                      qualityResults.quality
+                    }}</span>
+                  </div>
+                  <div
+                    class="quality-score"
+                    :class="getScoreClass(qualityScores.quality)"
+                  >
+                    {{ qualityScores.quality
+                    }}<span class="score-total">/20</span>
+                  </div>
                 </div>
                 <div v-if="visibleItems[4]" key="4" class="quality-item">
                   <div class="quality-item-left">
@@ -822,8 +1005,18 @@ onUnmounted(() => {
                     </div>
                     <span class="quality-name">表达清晰度</span>
                   </div>
-                  <div class="quality-result">{{ qualityResults.clarity }}</div>
-                  <div class="quality-score"></div>
+                  <div class="quality-result">
+                    <span class="quality-result-content">{{
+                      qualityResults.clarity
+                    }}</span>
+                  </div>
+                  <div
+                    class="quality-score"
+                    :class="getScoreClass(qualityScores.clarity)"
+                  >
+                    {{ qualityScores.clarity
+                    }}<span class="score-total">/20</span>
+                  </div>
                 </div>
               </TransitionGroup>
             </div>
@@ -880,7 +1073,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   flex: 1;
-  cursor: text;
+  cursor: pointer;
   padding: 14px 16px;
   border-radius: 14px;
   gap: 12px;
@@ -1245,30 +1438,65 @@ onUnmounted(() => {
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
+  line-height: 1.5;
 }
 
 .quality-result {
   flex: 1;
   font-size: 13px;
-  line-height: 1.8;
+  line-height: 1.5;
   color: var(--text-secondary);
-  min-height: 3.6em;
-  max-height: 3.6em;
+  min-height: 3em;
+  max-height: 3em;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.quality-result-content {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
 }
 
 .quality-score {
-  width: 50px;
+  width: 70px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--primary);
+}
+
+.score-total {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.score-excellent {
+  color: #10b981;
+}
+
+.score-good {
+  color: #3b82f6;
+}
+
+.score-medium {
+  color: #f59e0b;
+}
+
+.score-poor {
+  color: #ef4444;
+}
+
+.score-bad {
+  color: #dc2626;
 }
 
 @keyframes spin {
