@@ -53,7 +53,20 @@ const qualityScores = ref({
   quality: 0,
   clarity: 0,
 });
+const totalScore = ref(0);
+const totalComment = ref("");
+const visibleTotalScore = ref(false);
+const progressBarWidth = ref(0);
 const currentStep = ref(-1); // -1=未开始, 0-4=当前步骤
+
+// 修改建议相关状态
+const visibleSuggestions = ref(false);
+const visibleSuggestionItems = ref([false, false, false]);
+const suggestions = ref([
+  { icon: "💡", text: "增加2-3个具体案例或数据支持，提升内容的说服力和充实度" },
+  { icon: "📝", text: "优化段落之间的过渡语句，让文章逻辑更加连贯自然" },
+  { icon: "🎯", text: "简化部分冗长复杂的句子，让表达更加清晰易懂" },
+]);
 
 // 保存上一次的质检结果和文章内容 - 按项目ID持久化
 const getQualityCheckStorageKey = () => `quality-check-${props.project.id}`;
@@ -61,6 +74,8 @@ const lastQualityCheck = ref({
   articleContent: "",
   results: null,
   scores: null,
+  totalScore: 0,
+  totalComment: "",
 });
 
 // 加载项目质检记录
@@ -68,7 +83,20 @@ const loadQualityCheckRecord = () => {
   try {
     const saved = localStorage.getItem(getQualityCheckStorageKey());
     if (saved) {
-      const data = JSON.parse(saved);
+      let data = JSON.parse(saved);
+
+      // 给旧数据补全缺失的字段
+      if (data.totalScore === undefined && data.scores) {
+        // 旧数据没有总分，计算5个维度的得分之和
+        data.totalScore =
+          (data.scores.structure || 0) +
+          (data.scores.content || 0) +
+          (data.scores.logic || 0) +
+          (data.scores.quality || 0) +
+          (data.scores.clarity || 0);
+        data.totalComment = "继续努力，提升文章质量！";
+      }
+
       lastQualityCheck.value = data;
       console.log("已加载项目质检记录:", props.project.id, data);
     } else {
@@ -77,6 +105,8 @@ const loadQualityCheckRecord = () => {
         articleContent: "",
         results: null,
         scores: null,
+        totalScore: 0,
+        totalComment: "",
       };
     }
   } catch (e) {
@@ -85,8 +115,18 @@ const loadQualityCheckRecord = () => {
       articleContent: "",
       results: null,
       scores: null,
+      totalScore: 0,
+      totalComment: "",
     };
   }
+};
+
+// 根据总分获取样式和颜色
+const getTotalScoreColor = (score) => {
+  if (score >= 85) return "#10b981"; // 绿色 - 优秀
+  if (score >= 70) return "#3b82f6"; // 蓝色 - 良好
+  if (score >= 50) return "#f59e0b"; // 橙色 - 中等
+  return "#ef4444"; // 红色 - 需改进
 };
 
 // 保存项目质检记录
@@ -366,10 +406,32 @@ const showPreviousQualityCheck = () => {
   // 直接设置结果
   qualityResults.value = { ...lastQualityCheck.value.results };
   qualityScores.value = { ...lastQualityCheck.value.scores };
+
+  // 确保有总分，如果没有就计算
+  if (lastQualityCheck.value.totalScore !== undefined) {
+    totalScore.value = lastQualityCheck.value.totalScore;
+  } else {
+    // 旧数据没有保存总分，计算一下
+    totalScore.value =
+      (qualityScores.value.structure || 0) +
+      (qualityScores.value.content || 0) +
+      (qualityScores.value.logic || 0) +
+      (qualityScores.value.quality || 0) +
+      (qualityScores.value.clarity || 0);
+  }
+
+  totalComment.value =
+    lastQualityCheck.value.totalComment || "继续努力，提升文章质量！";
   currentStep.value = 5;
 
   // 显示所有项目
   visibleItems.value = [true, true, true, true, true];
+  visibleTotalScore.value = true;
+  progressBarWidth.value = totalScore.value;
+
+  // 同时显示建议（直接全部显示，不需要动画
+  visibleSuggestions.value = true;
+  visibleSuggestionItems.value = [true, true, true];
 };
 
 // 智能文章质检
@@ -407,6 +469,10 @@ const startQualityCheck = async () => {
     quality: 0,
     clarity: 0,
   };
+  totalScore.value = 0;
+  totalComment.value = "";
+  visibleTotalScore.value = false;
+  progressBarWidth.value = 0;
   currentStep.value = -1;
 
   // 质检维度配置
@@ -434,10 +500,6 @@ const startQualityCheck = async () => {
   ];
 
   try {
-    console.log("=========================================");
-    console.log("开始智能质检！");
-    console.log("=========================================");
-
     // 调用一次AI获取所有5个维度的评价
     const response = await fetch("/api/ai/quality-check-full", {
       method: "POST",
@@ -454,7 +516,6 @@ const startQualityCheck = async () => {
     }
 
     const result = await response.json();
-    console.log("获取到的评价结果:", result);
 
     // 等一小段时间让用户看到加载状态
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -485,6 +546,9 @@ const startQualityCheck = async () => {
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, 200));
         visibleItems.value[i] = true;
+        // 显示后立即滚动到底部
+        await nextTick();
+        scrollToBottom();
       }
 
       // 流式输出该条内容
@@ -497,14 +561,69 @@ const startQualityCheck = async () => {
     // 全部完成
     currentStep.value = 5;
 
+    // 直接在前端计算总分，不依赖后端！！
+    totalScore.value =
+      (qualityScores.value.structure || 0) +
+      (qualityScores.value.content || 0) +
+      (qualityScores.value.logic || 0) +
+      (qualityScores.value.quality || 0) +
+      (qualityScores.value.clarity || 0);
+
+    // 根据总分生成评语
+    if (totalScore.value >= 85) {
+      totalComment.value = "文章优秀，继续保持！";
+    } else if (totalScore.value >= 70) {
+      totalComment.value = "文章良好，还有提升空间！";
+    } else if (totalScore.value >= 50) {
+      totalComment.value = "文章一般，需要继续完善！";
+    } else {
+      totalComment.value = "继续努力，提升文章质量！";
+    }
+
     // 保存本次结果和文章内容
     lastQualityCheck.value = {
       articleContent: fullMarkdown,
       results: { ...qualityResults.value },
       scores: { ...qualityScores.value },
+      totalScore: totalScore.value,
+      totalComment: totalComment.value,
     };
     // 持久化到 localStorage
     saveQualityCheckRecord();
+
+    // 等待300ms
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // 先显示总分，让内容高度先确定
+    visibleTotalScore.value = true;
+
+    // 等DOM更新后，立即滚动到底部
+    await nextTick();
+    scrollToBottom();
+
+    // 进度条动画
+    const targetWidth = totalScore.value;
+    for (let i = 0; i <= targetWidth; i += 2) {
+      progressBarWidth.value = i;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    progressBarWidth.value = targetWidth;
+
+    // 进度条完成后，显示修改建议
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    // 先滚动到底部（准备显示建议区域
+    visibleSuggestions.value = true;
+    await nextTick();
+    scrollToBottom();
+
+    // 瀑布式显示每条建议
+    for (let i = 0; i < suggestions.value.length; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      visibleSuggestionItems.value[i] = true;
+      // 每次显示后滚动到底部
+      await nextTick();
+      scrollToBottom();
+    }
   } catch (error) {
     console.error("质检失败:", error);
   } finally {
@@ -512,11 +631,23 @@ const startQualityCheck = async () => {
   }
 };
 
+// 滚动到弹窗底部
+const scrollToBottom = () => {
+  const modalBody = document.querySelector(".modal-body");
+  if (!modalBody) return;
+
+  // 使用直接赋值方式，兼容性更好
+  modalBody.scrollTop = modalBody.scrollHeight;
+};
+
 // 关闭质检弹窗
 const closeQualityCheck = () => {
   showQualityCheck.value = false;
   showLoadingState.value = true;
   visibleItems.value = [false, false, false, false, false];
+  visibleTotalScore.value = false;
+  visibleSuggestions.value = false;
+  visibleSuggestionItems.value = [false, false, false];
   qualityResults.value = {
     structure: "",
     content: "",
@@ -524,6 +655,9 @@ const closeQualityCheck = () => {
     quality: "",
     clarity: "",
   };
+  totalScore.value = 0;
+  totalComment.value = "";
+  progressBarWidth.value = 0;
   currentStep.value = -1;
 };
 
@@ -721,6 +855,7 @@ watch(
     showQualityCheck.value = false;
     showLoadingState.value = true;
     visibleItems.value = [false, false, false, false, false];
+    visibleTotalScore.value = false;
     qualityResults.value = {
       structure: "",
       content: "",
@@ -735,6 +870,9 @@ watch(
       quality: 0,
       clarity: 0,
     };
+    totalScore.value = 0;
+    totalComment.value = "";
+    progressBarWidth.value = 0;
     currentStep.value = -1;
   },
 );
@@ -785,6 +923,7 @@ watch(
           <button
             v-if="outline.length > 0"
             class="quality-check-btn"
+            :class="{ 'quality-report-mode': canShowQualityReport }"
             @click="startQualityCheck"
             :disabled="qualityCheckLoading"
           >
@@ -1019,6 +1158,66 @@ watch(
                   </div>
                 </div>
               </TransitionGroup>
+
+              <!-- 总分显示 -->
+              <Transition name="slide-fade">
+                <div
+                  v-if="visibleTotalScore"
+                  key="total"
+                  class="total-score-section"
+                >
+                  <div class="total-score-header">
+                    <span class="total-score-label">文章综合评分</span>
+                    <span
+                      class="total-score-value"
+                      :style="{ color: getTotalScoreColor(totalScore) }"
+                    >
+                      {{ totalScore
+                      }}<span class="total-score-suffix">/100</span>
+                    </span>
+                  </div>
+                  <div class="progress-bar-container">
+                    <div
+                      class="progress-bar"
+                      :style="{
+                        width: `${progressBarWidth}%`,
+                        backgroundColor: getTotalScoreColor(totalScore),
+                      }"
+                    ></div>
+                  </div>
+                  <p class="total-comment">{{ totalComment }}</p>
+                </div>
+              </Transition>
+
+              <!-- 修改建议区域 -->
+              <Transition name="slide-fade">
+                <div
+                  v-if="visibleSuggestions"
+                  key="suggestions"
+                  class="suggestions-section"
+                >
+                  <div class="suggestions-header">
+                    <span class="suggestions-title">📋 优先改进建议</span>
+                  </div>
+                  <div class="suggestions-list">
+                    <TransitionGroup name="item-fade">
+                      <div
+                        v-for="(suggestion, index) in suggestions"
+                        :key="index"
+                        v-show="visibleSuggestionItems[index]"
+                        class="suggestion-item"
+                      >
+                        <span class="suggestion-icon">{{
+                          suggestion.icon
+                        }}</span>
+                        <span class="suggestion-text">{{
+                          suggestion.text
+                        }}</span>
+                      </div>
+                    </TransitionGroup>
+                  </div>
+                </div>
+              </Transition>
             </div>
           </Transition>
         </div>
@@ -1250,6 +1449,16 @@ watch(
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+/* 质检报告模式 - 绿色系 */
+.quality-check-btn.quality-report-mode {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.quality-check-btn.quality-report-mode:hover:not(:disabled) {
+  background-color: rgba(16, 185, 129, 0.1);
 }
 
 /* 智能质检弹窗 */
@@ -1497,6 +1706,123 @@ watch(
 
 .score-bad {
   color: #dc2626;
+}
+
+/* 总分显示样式 */
+.total-score-section {
+  margin-top: 16px;
+  padding: 20px 24px;
+  background-color: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+}
+
+.total-score-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.total-score-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.total-score-value {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.total-score-suffix {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 10px;
+  background-color: var(--bg-tertiary);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.1s ease-out;
+}
+
+.total-comment {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* 修改建议区域样式 */
+.suggestions-section {
+  margin-top: 16px;
+  padding: 20px 24px;
+  background-color: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+}
+
+.suggestions-header {
+  margin-bottom: 16px;
+}
+
+.suggestions-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background-color: var(--bg-tertiary);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.suggestion-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.suggestion-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* 建议项淡入动画 */
+.item-fade-enter-active,
+.item-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.item-fade-enter-from,
+.item-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 @keyframes spin {

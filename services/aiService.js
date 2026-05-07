@@ -226,7 +226,7 @@ class AIService {
         role: "user",
         content: `${articleContent}
 
-请从以下5个维度评价这篇文章，每个维度用50字以内概括评价，并给出0-20分的分数（总分20分），直接给出评价不要解释：
+请从以下5个维度评价这篇文章，每个维度用50字以内概括评价，并给出0-20分的分数（每个维度满分20分）：
 
 1. 大纲结构
 2. 章节内容
@@ -234,7 +234,7 @@ class AIService {
 4. 内容质量
 5. 表达清晰度
 
-请严格按照以下格式输出：
+请严格按照以下格式输出，不要改变顺序，不要添加额外解释：
 1. 大纲结构：评价内容 | 分数
 2. 章节内容：评价内容 | 分数
 3. 逻辑严密性：评价内容 | 分数
@@ -268,6 +268,8 @@ class AIService {
         logicScore: 0,
         qualityScore: 0,
         clarityScore: 0,
+        totalScore: 0,
+        comment: "继续努力，提升文章质量！",
       };
 
       // 解析格式：1. 大纲结构：评价内容 | 分数
@@ -337,6 +339,25 @@ class AIService {
       if (clarityResult) {
         evaluations.clarity = clarityResult.text;
         evaluations.clarityScore = clarityResult.score;
+      }
+
+      // 直接计算5个维度得分之和（每个维度20分，共100分）
+      evaluations.totalScore = 
+        evaluations.structureScore +
+        evaluations.contentScore +
+        evaluations.logicScore +
+        evaluations.qualityScore +
+        evaluations.clarityScore;
+
+      // 生成简单的评语
+      if (evaluations.totalScore >= 85) {
+        evaluations.comment = "文章优秀，继续保持！";
+      } else if (evaluations.totalScore >= 70) {
+        evaluations.comment = "文章良好，还有提升空间！";
+      } else if (evaluations.totalScore >= 50) {
+        evaluations.comment = "文章一般，需要继续完善！";
+      } else {
+        evaluations.comment = "继续努力，提升文章质量！";
       }
 
       console.log("解析后的评价:", evaluations);
