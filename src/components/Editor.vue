@@ -3,7 +3,18 @@ import { ref, watch, computed, onMounted, onUnmounted, nextTick } from "vue";
 import OutlineEditor from "./OutlineEditor.vue";
 import ContentGenerator from "./ContentGenerator.vue";
 import Icon from "./Icon.vue";
-import { Sparkles, Loader2, Edit3 } from "lucide-vue-next";
+import {
+  Sparkles,
+  Loader2,
+  Edit3,
+  CheckSquare,
+  X,
+  List,
+  FileText,
+  GitBranch,
+  CheckCircle,
+  MessageSquare,
+} from "lucide-vue-next";
 
 const props = defineProps({
   project: {
@@ -22,6 +33,20 @@ const isEditingTitle = ref(false);
 const editingTitle = ref("");
 const editTitleWrapper = ref(null);
 const titleInput = ref(null);
+
+// 质检弹窗相关
+const showQualityCheck = ref(false);
+const qualityCheckLoading = ref(false);
+const showLoadingState = ref(true); // 控制显示加载状态还是评价系统
+const visibleItems = ref([false, false, false, false, false]); // 控制每一项的可见性
+const qualityResults = ref({
+  structure: "",
+  content: "",
+  logic: "",
+  quality: "",
+  clarity: "",
+});
+const currentStep = ref(-1); // -1=未开始, 0-4=当前步骤
 
 // 计算导出按钮是否可用
 const canExport = computed(() => {
@@ -203,6 +228,179 @@ const generateOutline = async () => {
 // 更新大纲
 const updateOutline = (newOutline) => {
   outline.value = newOutline;
+};
+
+// 生成完整markdown内容（用于质检）- 和导出markdown完全一致
+const generateFullMarkdown = () => {
+  let markdown = "";
+
+  if (props.project.name) {
+    markdown += `# ${props.project.name}\n\n`;
+  }
+
+  const appendContent = (items, parentLevel = 0, parentIndex = []) => {
+    items.forEach((item, index) => {
+      const currentIndex = [...parentIndex, index];
+      let heading = "";
+      let title = "";
+
+      if (currentIndex.length === 1) {
+        // 主标题
+        const num = chineseNumbers[index] || index + 1;
+        heading = "##";
+        title = `${num}、${item.title}`;
+      } else if (currentIndex.length === 2) {
+        // 子标题
+        heading = "###";
+        title = `(${index + 1}) ${item.title}`;
+      } else {
+        // 更深层级（如果有的话）
+        heading = "#".repeat(currentIndex.length + 1);
+        title = item.title;
+      }
+
+      markdown += `${heading} ${title}\n\n`;
+
+      // 只输出纯内容，不重复标题
+      if (item.content) {
+        let content = cleanDuplicateTitle(item.content, item.title);
+        if (content) {
+          markdown += `${content}\n\n`;
+        }
+      }
+
+      if (item.children && item.children.length > 0) {
+        appendContent(item.children, parentLevel + 1, currentIndex);
+      }
+    });
+  };
+
+  appendContent(outline.value);
+
+  return markdown;
+};
+
+// 智能文章质检
+const startQualityCheck = async () => {
+  showQualityCheck.value = true;
+  showLoadingState.value = true;
+  qualityCheckLoading.value = true;
+
+  // 重置状态
+  qualityResults.value = {
+    structure: "",
+    content: "",
+    logic: "",
+    quality: "",
+    clarity: "",
+  };
+  currentStep.value = -1;
+
+  // 质检维度配置
+  const dimensions = [
+    {
+      key: "structure",
+      name: "大纲结构",
+    },
+    {
+      key: "content",
+      name: "章节内容",
+    },
+    {
+      key: "logic",
+      name: "逻辑严密性",
+    },
+    {
+      key: "quality",
+      name: "内容质量",
+    },
+    {
+      key: "clarity",
+      name: "表达清晰度",
+    },
+  ];
+
+  try {
+    // 生成完整markdown内容
+    const fullMarkdown = generateFullMarkdown();
+
+    console.log("=========================================");
+    console.log("开始智能质检！");
+    console.log("=========================================");
+
+    // 调用一次AI获取所有5个维度的评价
+    const response = await fetch("/api/ai/quality-check-full", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topic: props.project.name,
+        outline: outline.value,
+        fullMarkdown: fullMarkdown,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("获取到的评价结果:", result);
+
+    // 等一小段时间让用户看到加载状态
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // 先淡出加载状态
+    showLoadingState.value = false;
+
+    // 等待淡出动画完成（0.4s）
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    // 显示第一项
+    visibleItems.value[0] = true;
+    currentStep.value = 0;
+
+    // 开始依次处理每条评价
+    const evaluations = result.data;
+    for (let i = 0; i < dimensions.length; i++) {
+      const dim = dimensions[i];
+      const text = evaluations[dim.key] || "评价加载失败";
+      currentStep.value = i;
+
+      // 如果不是第一项，等200ms显示下一项
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        visibleItems.value[i] = true;
+      }
+
+      // 流式输出该条内容
+      for (let j = 0; j < text.length; j++) {
+        qualityResults.value[dim.key] += text[j];
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    }
+
+    // 全部完成
+    currentStep.value = 5;
+  } catch (error) {
+    console.error("质检失败:", error);
+  } finally {
+    qualityCheckLoading.value = false;
+  }
+};
+
+// 关闭质检弹窗
+const closeQualityCheck = () => {
+  showQualityCheck.value = false;
+  showLoadingState.value = true;
+  visibleItems.value = [false, false, false, false, false];
+  qualityResults.value = {
+    structure: "",
+    content: "",
+    logic: "",
+    quality: "",
+    clarity: "",
+  };
+  currentStep.value = -1;
 };
 
 // 中文数字转换
@@ -439,6 +637,16 @@ onUnmounted(() => {
             <Icon v-else name="Loader2" :size="18" class="spinner" />
             <span>生成大纲</span>
           </button>
+          <button
+            v-if="outline.length > 0"
+            class="quality-check-btn"
+            @click="startQualityCheck"
+            :disabled="qualityCheckLoading"
+          >
+            <Icon v-if="!qualityCheckLoading" name="CheckSquare" :size="18" />
+            <Icon v-else name="Loader2" :size="18" class="spinner" />
+            <span>智能质检</span>
+          </button>
         </div>
         <p v-if="outline.length === 0" class="topic-hint">
           点击生成大纲，AI 将为你创建文章结构
@@ -458,6 +666,170 @@ onUnmounted(() => {
         :outline="outline"
         @update:outline="updateOutline"
       />
+    </div>
+
+    <!-- 智能质检弹窗 -->
+    <div v-if="showQualityCheck" class="quality-check-modal">
+      <div class="modal-overlay" @click="closeQualityCheck"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>智能文章质检</h2>
+          <button class="close-btn" @click="closeQualityCheck">
+            <Icon name="X" :size="20" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- 使用Transition的mode="out-in"确保先淡出再淡入 -->
+          <Transition name="fade" mode="out-in">
+            <!-- 加载状态 -->
+            <div v-if="showLoadingState" key="loading" class="loading-state">
+              <div class="loading-icon">
+                <Icon name="Loader2" :size="48" class="spinner" />
+              </div>
+              <p class="loading-text">正在读取文章内容</p>
+              <p class="loading-subtext">AI正在分析您的文章...</p>
+            </div>
+
+            <!-- 评价系统 -->
+            <div v-else key="quality" class="quality-list">
+              <TransitionGroup name="slide-fade">
+                <div v-if="visibleItems[0]" key="0" class="quality-item">
+                  <div class="quality-item-left">
+                    <div
+                      class="quality-icon"
+                      :class="{
+                        loading: currentStep === 0,
+                        done: currentStep > 0,
+                      }"
+                    >
+                      <Icon
+                        v-if="currentStep > 0"
+                        name="CheckCircle"
+                        :size="20"
+                      />
+                      <Icon
+                        v-else
+                        name="Loader2"
+                        :size="20"
+                        :class="{ spinner: currentStep >= 0 }"
+                      />
+                    </div>
+                    <span class="quality-name">大纲结构</span>
+                  </div>
+                  <div class="quality-result">
+                    {{ qualityResults.structure }}
+                  </div>
+                  <div class="quality-score"></div>
+                </div>
+                <div v-if="visibleItems[1]" key="1" class="quality-item">
+                  <div class="quality-item-left">
+                    <div
+                      class="quality-icon"
+                      :class="{
+                        loading: currentStep === 1,
+                        done: currentStep > 1,
+                      }"
+                    >
+                      <Icon
+                        v-if="currentStep > 1"
+                        name="CheckCircle"
+                        :size="20"
+                      />
+                      <Icon
+                        v-else
+                        name="Loader2"
+                        :size="20"
+                        :class="{ spinner: currentStep >= 0 }"
+                      />
+                    </div>
+                    <span class="quality-name">章节内容</span>
+                  </div>
+                  <div class="quality-result">{{ qualityResults.content }}</div>
+                  <div class="quality-score"></div>
+                </div>
+                <div v-if="visibleItems[2]" key="2" class="quality-item">
+                  <div class="quality-item-left">
+                    <div
+                      class="quality-icon"
+                      :class="{
+                        loading: currentStep === 2,
+                        done: currentStep > 2,
+                      }"
+                    >
+                      <Icon
+                        v-if="currentStep > 2"
+                        name="CheckCircle"
+                        :size="20"
+                      />
+                      <Icon
+                        v-else
+                        name="Loader2"
+                        :size="20"
+                        :class="{ spinner: currentStep >= 0 }"
+                      />
+                    </div>
+                    <span class="quality-name">逻辑严密性</span>
+                  </div>
+                  <div class="quality-result">{{ qualityResults.logic }}</div>
+                  <div class="quality-score"></div>
+                </div>
+                <div v-if="visibleItems[3]" key="3" class="quality-item">
+                  <div class="quality-item-left">
+                    <div
+                      class="quality-icon"
+                      :class="{
+                        loading: currentStep === 3,
+                        done: currentStep > 3,
+                      }"
+                    >
+                      <Icon
+                        v-if="currentStep > 3"
+                        name="CheckCircle"
+                        :size="20"
+                      />
+                      <Icon
+                        v-else
+                        name="Loader2"
+                        :size="20"
+                        :class="{ spinner: currentStep >= 0 }"
+                      />
+                    </div>
+                    <span class="quality-name">内容质量</span>
+                  </div>
+                  <div class="quality-result">{{ qualityResults.quality }}</div>
+                  <div class="quality-score"></div>
+                </div>
+                <div v-if="visibleItems[4]" key="4" class="quality-item">
+                  <div class="quality-item-left">
+                    <div
+                      class="quality-icon"
+                      :class="{
+                        loading: currentStep === 4,
+                        done: currentStep > 4,
+                      }"
+                    >
+                      <Icon
+                        v-if="currentStep > 4"
+                        name="CheckCircle"
+                        :size="20"
+                      />
+                      <Icon
+                        v-else
+                        name="Loader2"
+                        :size="20"
+                        :class="{ spinner: currentStep >= 0 }"
+                      />
+                    </div>
+                    <span class="quality-name">表达清晰度</span>
+                  </div>
+                  <div class="quality-result">{{ qualityResults.clarity }}</div>
+                  <div class="quality-score"></div>
+                </div>
+              </TransitionGroup>
+            </div>
+          </Transition>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -651,6 +1023,252 @@ onUnmounted(() => {
 
 .spinner {
   animation: spin 0.8s linear infinite;
+}
+
+/* 智能质检按钮 - 蓝色轮廓样式 */
+.quality-check-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid var(--primary);
+  background-color: transparent;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 12px;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  height: 52px;
+}
+
+.quality-check-btn:hover:not(:disabled) {
+  background-color: rgba(14, 165, 233, 0.1);
+  transform: translateY(-2px);
+}
+
+.quality-check-btn:active {
+  transform: translateY(0);
+}
+
+.quality-check-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 智能质检弹窗 */
+.quality-check-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  background-color: var(--bg-sidebar);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-input);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 450px;
+  /* 固定高度，正好显示5个评价项 */
+}
+
+/* 加载状态样式 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 280px;
+}
+
+.loading-icon {
+  color: var(--primary);
+  margin-bottom: 24px;
+}
+
+.loading-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.loading-subtext {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 淡入淡出过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* 各项依次淡入动画 */
+.slide-fade-enter-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-fade-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* 评价列表样式 */
+.quality-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 质检项目 - 紧凑高度 */
+.quality-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.quality-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.quality-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: var(--bg-tertiary);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.quality-icon.loading {
+  color: var(--primary);
+}
+
+.quality-icon.done {
+  color: var(--success);
+}
+
+.quality-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.quality-result {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  min-height: 3.6em;
+  max-height: 3.6em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.quality-score {
+  width: 50px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
 }
 
 @keyframes spin {

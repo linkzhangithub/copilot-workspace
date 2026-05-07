@@ -114,7 +114,8 @@ class AIService {
     const messages = [
       {
         role: "system",
-        content: "你是一个专业的文案撰写助手，擅长根据大纲撰写详细的文章内容。\n\n⚠️ 严格遵守以下规则：\n1. 只返回正文内容，绝对不要添加任何标题\n2. 不要以#、##、###等markdown标题开头\n3. 不要重复当前章节的标题\n4. 不要添加任何解释、说明或引导文字\n5. 直接开始撰写正文的第一句话\n6. 输出格式应该就是纯文本段落，不要任何markdown格式",
+        content:
+          "你是一个专业的文案撰写助手，擅长根据大纲撰写详细的文章内容。\n\n⚠️ 严格遵守以下规则：\n1. 只返回正文内容，绝对不要添加任何标题\n2. 不要以#、##、###等markdown标题开头\n3. 不要重复当前章节的标题\n4. 不要添加任何解释、说明或引导文字\n5. 直接开始撰写正文的第一句话\n6. 输出格式应该就是纯文本段落，不要任何markdown格式",
       },
       {
         role: "user",
@@ -201,6 +202,220 @@ class AIService {
       console.error("改写内容失败:", error);
       throw new Error("改写内容失败: " + error.message);
     }
+  }
+
+  // 一次性获取所有5个维度的质检评价
+  async fullQualityCheck(topic, outline, fullMarkdown) {
+    // 优先使用 fullMarkdown，只有在没有 fullMarkdown 时才使用格式化大纲
+    let articleContent;
+    if (fullMarkdown && fullMarkdown.trim().length > 0) {
+      console.log("✅ 使用完整的 Markdown 内容");
+      articleContent = fullMarkdown;
+    } else {
+      console.log("⚠️ 没有 fullMarkdown，使用格式化大纲");
+      articleContent = this.formatOutlineForCheck(outline);
+    }
+
+    const messages = [
+      {
+        role: "system",
+        content:
+          "你是一位资深的文章质量评估专家，擅长从多个维度精准评价文章优劣。请仔细阅读文章，深入分析后给出评价，评价要客观具体，有细节，语言简洁有力。不要解释你的思考过程，直接给出评价结果。",
+      },
+      {
+        role: "user",
+        content: `${articleContent}
+
+请从以下5个维度评价这篇文章，每个维度用50字以内概括评价，直接给出评价不要解释：
+
+1. 大纲结构
+2. 章节内容
+3. 逻辑严密性
+4. 内容质量
+5. 表达清晰度`,
+      },
+    ];
+
+    try {
+      const response = await this.client.chatCompletions({
+        model: this.model,
+        messages,
+        temperature: 0.3,
+        max_tokens: 1000,
+      });
+
+      const message = response.data.choices[0]?.message;
+      const result = message?.content || message?.reasoning_content || "";
+
+      console.log("AI完整返回:", result);
+
+      // 解析各个维度的评价
+      const evaluations = {
+        structure: "文章结构需要完善。",
+        content: "内容充实度需要提升。",
+        logic: "文章逻辑需要优化。",
+        quality: "内容质量有待提高。",
+        clarity: "表达清晰度需要改进。",
+      };
+
+      // 解析格式：1. 大纲结构：评价内容
+      const parsePattern = (tag) => {
+        const regex = new RegExp(
+          `\\d+\\.\\s*${tag}：(.*?)(?=\\n\\d+\\.|$)`,
+          "s",
+        );
+        const match = result.match(regex);
+        if (match && match[1]) {
+          let text = match[1].trim();
+          // 清理评价，去掉多余的换行
+          text = text.replace(/\n/g, " ");
+          if (text.length > 50) {
+            text = text.substring(0, 50);
+          }
+          return text;
+        }
+        return null;
+      };
+
+      evaluations.structure = parsePattern("大纲结构") || evaluations.structure;
+      evaluations.content = parsePattern("章节内容") || evaluations.content;
+      evaluations.logic = parsePattern("逻辑严密性") || evaluations.logic;
+      evaluations.quality = parsePattern("内容质量") || evaluations.quality;
+      evaluations.clarity = parsePattern("表达清晰度") || evaluations.clarity;
+
+      console.log("解析后的评价:", evaluations);
+      return evaluations;
+    } catch (error) {
+      console.error("质检失败:", error);
+      throw new Error("质检失败: " + error.message);
+    }
+  }
+
+  // 单维度质检（保留用于兼容）
+  async singleDimensionCheck(topic, outline, fullMarkdown, dimension, prompt) {
+    const dimensionPrompts = {
+      structure: "大纲结构完整性",
+      content: "章节内容充实度",
+      logic: "逻辑严密性",
+      quality: "内容质量",
+      clarity: "表达清晰度",
+    };
+
+    const dimensionName = dimensionPrompts[dimension] || dimension;
+
+    // 优先使用 fullMarkdown，只有在没有 fullMarkdown 时才使用格式化大纲
+    let articleContent;
+    if (fullMarkdown && fullMarkdown.trim().length > 0) {
+      console.log("✅ 使用完整的 Markdown 内容");
+      articleContent = fullMarkdown;
+    } else {
+      console.log("⚠️ 没有 fullMarkdown，使用格式化大纲");
+      articleContent = this.formatOutlineForCheck(outline);
+    }
+
+    const messages = [
+      {
+        role: "system",
+        content: "直接评价文章，不要解释你的思考过程。",
+      },
+      {
+        role: "user",
+        content: `${articleContent}
+
+评价这篇文章的${dimensionName}。`,
+      },
+    ];
+
+    try {
+      const response = await this.client.chatCompletions({
+        model: this.model,
+        messages,
+        temperature: 0.3,
+        max_tokens: 80,
+      });
+
+      const message = response.data.choices[0]?.message;
+      let result = message?.content || message?.reasoning_content || "";
+      result = result.trim();
+
+      // 强力清理：去掉所有解释性内容
+      // 去掉"用户让我"、"我需要"等开头
+      let cleaned = result;
+      const removePatterns = [
+        /^用户让我[^。]*。?/,
+        /^我需要[^。]*。?/,
+        /^让我[^。]*。?/,
+        /^首先[^。]*。?/,
+        /^好的[^。]*。?/,
+        /^这篇文章[^。]*。?/,
+        /^评价这篇[^。]*。?/,
+        /^任务是[^。]*。?/,
+        /^我来[^。]*。?/,
+        /^我会[^。]*。?/,
+      ];
+
+      for (const pattern of removePatterns) {
+        cleaned = cleaned.replace(pattern, "").trim();
+      }
+
+      // 如果还是空，尝试取最后一句话
+      if (!cleaned && result.includes("。")) {
+        const sentences = result.split("。").filter((s) => s.trim());
+        if (sentences.length > 0) {
+          cleaned = sentences[sentences.length - 1].trim();
+        }
+      }
+
+      // 截取前40字
+      if (cleaned.length > 40) {
+        cleaned = cleaned.substring(0, 40);
+      }
+
+      // 如果清理后还是没有内容，返回简单评价
+      if (!cleaned) {
+        cleaned = "文章内容需要完善。";
+      }
+
+      return cleaned;
+    } catch (error) {
+      console.error("质检失败:", error);
+      throw new Error("质检失败: " + error.message);
+    }
+  }
+
+  // 格式化大纲用于质检
+  formatOutlineForCheck(outline) {
+    if (!outline || !Array.isArray(outline)) {
+      return "无";
+    }
+
+    return outline
+      .map((item, index) => {
+        let line = `${index + 1}. ${item.title}`;
+        if (item.children && item.children.length > 0) {
+          // 安全地处理children，确保每个都是字符串
+          const childrenTitles = item.children
+            .map((child) => {
+              if (typeof child === "string") {
+                return child;
+              } else if (child && typeof child === "object" && child.title) {
+                return child.title;
+              } else {
+                return "";
+              }
+            })
+            .filter(Boolean)
+            .join("、");
+          if (childrenTitles) {
+            line += ` (${childrenTitles})`;
+          }
+        }
+        if (item.content) {
+          line += `\n   内容: ${item.content.substring(0, 100)}...`;
+        }
+        return line;
+      })
+      .join("\n");
   }
 }
 
