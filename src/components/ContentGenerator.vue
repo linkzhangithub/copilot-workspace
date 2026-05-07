@@ -8,6 +8,10 @@ const props = defineProps({
     type: Array,
     required: true,
   },
+  articleTopic: {
+    type: String,
+    default: "",
+  },
 });
 
 const emit = defineEmits(["update:outline"]);
@@ -322,6 +326,67 @@ const streamRequest = async (url, body, onData, onComplete, onError) => {
   }
 };
 
+/**
+ * 生成内容摘要（简单版，截取前100字）
+ */
+const generateContentSummary = (content) => {
+  if (!content || typeof content !== "string") return "内容为空";
+  return content.substring(0, 100) + (content.length > 100 ? "..." : "");
+};
+
+/**
+ * 从内容中提取关键信息点（简单版）
+ */
+const extractKeyPoints = (content) => {
+  if (!content || typeof content !== "string") return [];
+  
+  // 简单的关键信息提取：查找句子中的重要信息
+  const keyPoints = [];
+  const sentences = content.split(/[。！？.!?]/).filter(s => s.trim().length > 10);
+  
+  // 取前3个较长的句子作为关键点
+  sentences.slice(0, 3).forEach(sentence => {
+    if (sentence.trim().length > 15) {
+      keyPoints.push(sentence.trim().substring(0, 50) + "...");
+    }
+  });
+  
+  return keyPoints;
+};
+
+/**
+ * 构建上下文信息对象
+ */
+const buildContextInfo = (sectionIndex, taskType = "first_generate", originalContent = "") => {
+  // 收集前面已完成的章节
+  const completedSections = [];
+  const usedKeyPoints = [];
+  
+  // 遍历前面的章节
+  for (let i = 0; i < sectionIndex; i++) {
+    const section = props.outline[i];
+    if (section && section.content) {
+      const summary = generateContentSummary(section.content);
+      completedSections.push({
+        title: section.title,
+        contentSummary: summary
+      });
+      
+      // 提取关键信息点
+      const keyPoints = extractKeyPoints(section.content);
+      usedKeyPoints.push(...keyPoints);
+    }
+  }
+  
+  return {
+    articleTopic: props.articleTopic,
+    completedSections: completedSections,
+    usedKeyPoints: usedKeyPoints.slice(0, 8), // 限制最多8个关键点
+    taskType: taskType,
+    originalContent: originalContent
+  };
+};
+
 // 生成章节内容（带打字机效果）
 const generateSection = async (path) => {
   if (generatingPath.value !== null) return;
@@ -369,12 +434,18 @@ const generateSection = async (path) => {
 
   try {
     console.log("开始生成内容，path:", path);
+    
+    // 构建上下文信息
+    const sectionIndex = path[0]; // 使用第一个路径索引作为sectionIndex
+    const contextInfo = buildContextInfo(sectionIndex, "first_generate");
+    
     const response = await fetch("/api/ai/generate-content-simple", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         outline: props.outline,
-        sectionIndex: path[0] // 使用第一个路径索引作为sectionIndex
+        sectionIndex: sectionIndex,
+        contextInfo: contextInfo
       }),
     });
 
@@ -418,7 +489,7 @@ const generateSection = async (path) => {
   }
 };
 
-// 改写内容（接入真实 API）
+// 改写内容（使用增强版API）
 const rewriteSection = async (path, operation) => {
   const pathKey = getPathKey(path);
   
@@ -438,13 +509,18 @@ const rewriteSection = async (path, operation) => {
   currentOperation.value = operation;
 
   try {
-    // 调用API
-    const response = await fetch("/api/ai/rewrite", {
+    // 构建上下文信息
+    const sectionIndex = path[0];
+    const contextInfo = buildContextInfo(sectionIndex, operation, section.content);
+    
+    // 调用增强版API
+    const response = await fetch("/api/ai/generate-content-simple", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content: section.content,
-        operation: operation
+        outline: props.outline,
+        sectionIndex: sectionIndex,
+        contextInfo: contextInfo
       }),
     });
 

@@ -62,11 +62,7 @@ const currentStep = ref(-1); // -1=未开始, 0-4=当前步骤
 // 修改建议相关状态
 const visibleSuggestions = ref(false);
 const visibleSuggestionItems = ref([false, false, false]);
-const suggestions = ref([
-  { icon: "💡", text: "增加2-3个具体案例或数据支持，提升内容的说服力和充实度" },
-  { icon: "📝", text: "优化段落之间的过渡语句，让文章逻辑更加连贯自然" },
-  { icon: "🎯", text: "简化部分冗长复杂的句子，让表达更加清晰易懂" },
-]);
+const suggestions = ref([]);
 
 // 保存上一次的质检结果和文章内容 - 按项目ID持久化
 const getQualityCheckStorageKey = () => `quality-check-${props.project.id}`;
@@ -76,6 +72,7 @@ const lastQualityCheck = ref({
   scores: null,
   totalScore: 0,
   totalComment: "",
+  suggestions: null,
 });
 
 // 加载项目质检记录
@@ -97,6 +94,21 @@ const loadQualityCheckRecord = () => {
         data.totalComment = "继续努力，提升文章质量！";
       }
 
+      // 给旧数据补全suggestions
+      if (!data.suggestions) {
+        data.suggestions = [
+          {
+            icon: "💡",
+            text: "增加2-3个具体案例或数据支持，提升内容的说服力和充实度",
+          },
+          {
+            icon: "📝",
+            text: "优化段落之间的过渡语句，让文章逻辑更加连贯自然",
+          },
+          { icon: "🎯", text: "简化部分冗长复杂的句子，让表达更加清晰易懂" },
+        ];
+      }
+
       lastQualityCheck.value = data;
       console.log("已加载项目质检记录:", props.project.id, data);
     } else {
@@ -107,6 +119,7 @@ const loadQualityCheckRecord = () => {
         scores: null,
         totalScore: 0,
         totalComment: "",
+        suggestions: null,
       };
     }
   } catch (e) {
@@ -117,6 +130,7 @@ const loadQualityCheckRecord = () => {
       scores: null,
       totalScore: 0,
       totalComment: "",
+      suggestions: null,
     };
   }
 };
@@ -424,6 +438,61 @@ const showPreviousQualityCheck = () => {
     lastQualityCheck.value.totalComment || "继续努力，提升文章质量！";
   currentStep.value = 5;
 
+  // 加载建议
+  if (
+    lastQualityCheck.value.suggestions &&
+    Array.isArray(lastQualityCheck.value.suggestions)
+  ) {
+    suggestions.value = lastQualityCheck.value.suggestions.slice(0, 3);
+  } else {
+    // 如果没有保存suggestions，根据分数重新生成
+    const autoSuggestions = [];
+    const scores = lastQualityCheck.value.scores;
+
+    if (scores && scores.structure <= 12) {
+      autoSuggestions.push({
+        icon: "📋",
+        text: "补充缺失的章节内容，完善文章的整体结构框架",
+      });
+    }
+    if (scores && scores.content <= 12) {
+      autoSuggestions.push({
+        icon: "💡",
+        text: "增加具体的案例和数据，提升章节内容的充实度",
+      });
+    }
+    if (scores && scores.logic <= 12) {
+      autoSuggestions.push({
+        icon: "🔗",
+        text: "优化段落间的过渡衔接，增强文章的逻辑连贯性",
+      });
+    }
+    if (scores && scores.quality <= 12) {
+      autoSuggestions.push({
+        icon: "📝",
+        text: "增加深度分析和专业内容，提升文章的内容质量",
+      });
+    }
+    if (scores && scores.clarity <= 12) {
+      autoSuggestions.push({
+        icon: "🎯",
+        text: "简化复杂句式，让表达更简洁明了",
+      });
+    }
+
+    const defaultSuggestions = [
+      { icon: "💡", text: "增加具体的数据或案例支持，提升说服力" },
+      { icon: "📝", text: "优化段落之间的过渡衔接，增强逻辑性" },
+      { icon: "🎯", text: "简化复杂句式，让表达更简洁明了" },
+    ];
+
+    while (autoSuggestions.length < 3) {
+      const randomIndex = Math.floor(Math.random() * defaultSuggestions.length);
+      autoSuggestions.push(defaultSuggestions[randomIndex]);
+    }
+    suggestions.value = autoSuggestions.slice(0, 3);
+  }
+
   // 显示所有项目
   visibleItems.value = [true, true, true, true, true];
   visibleTotalScore.value = true;
@@ -532,6 +601,92 @@ const startQualityCheck = async () => {
 
     // 开始依次处理每条评价
     const evaluations = result.data;
+
+    // 根据评价内容和分数，自动生成建议
+    const autoSuggestions = [];
+
+    // 检查大纲结构
+    if (evaluations.structureScore <= 12) {
+      autoSuggestions.push({
+        icon: "📋",
+        text: "补充缺失的章节内容，完善文章的整体结构框架",
+      });
+    } else if (evaluations.structureScore <= 16) {
+      autoSuggestions.push({
+        icon: "📋",
+        text: "优化章节间的层次关系，让大纲结构更清晰",
+      });
+    }
+
+    // 检查章节内容
+    if (evaluations.contentScore <= 12) {
+      autoSuggestions.push({
+        icon: "💡",
+        text: "增加具体的案例和数据，提升章节内容的充实度",
+      });
+    } else if (evaluations.contentScore <= 16) {
+      autoSuggestions.push({
+        icon: "💡",
+        text: "适当补充更多细节内容，让章节更丰富",
+      });
+    }
+
+    // 检查逻辑严密性
+    if (evaluations.logicScore <= 12) {
+      autoSuggestions.push({
+        icon: "🔗",
+        text: "优化段落间的过渡衔接，增强文章的逻辑连贯性",
+      });
+    } else if (evaluations.logicScore <= 16) {
+      autoSuggestions.push({
+        icon: "🔗",
+        text: "加强各部分之间的逻辑关联，让论证更严密",
+      });
+    }
+
+    // 检查内容质量
+    if (evaluations.qualityScore <= 12) {
+      autoSuggestions.push({
+        icon: "📝",
+        text: "增加深度分析和专业内容，提升文章的内容质量",
+      });
+    } else if (evaluations.qualityScore <= 16) {
+      autoSuggestions.push({
+        icon: "📝",
+        text: "补充一些创新观点或独特见解，让内容更有价值",
+      });
+    }
+
+    // 检查表达清晰度
+    if (evaluations.clarityScore <= 12) {
+      autoSuggestions.push({
+        icon: "🎯",
+        text: "简化复杂句式，让表达更简洁明了",
+      });
+    } else if (evaluations.clarityScore <= 16) {
+      autoSuggestions.push({
+        icon: "🎯",
+        text: "优化语言表达，让文章更生动易读",
+      });
+    }
+
+    // 如果建议不足3条，补充通用建议
+    const defaultSuggestions = [
+      { icon: "💡", text: "增加具体的数据或案例支持，提升说服力" },
+      { icon: "📝", text: "优化段落之间的过渡衔接，增强逻辑性" },
+      { icon: "🎯", text: "简化复杂句式，让表达更简洁明了" },
+      { icon: "📊", text: "增加一些图表或数据可视化内容" },
+      { icon: "✨", text: "优化标题和小标题，让文章结构更清晰" },
+    ];
+
+    // 确保有3条建议
+    while (autoSuggestions.length < 3) {
+      const randomIndex = Math.floor(Math.random() * defaultSuggestions.length);
+      autoSuggestions.push(defaultSuggestions[randomIndex]);
+    }
+
+    suggestions.value = autoSuggestions.slice(0, 3);
+
     for (let i = 0; i < dimensions.length; i++) {
       const dim = dimensions[i];
       const text = evaluations[dim.key] || "评价加载失败";
@@ -587,6 +742,7 @@ const startQualityCheck = async () => {
       scores: { ...qualityScores.value },
       totalScore: totalScore.value,
       totalComment: totalComment.value,
+      suggestions: [...suggestions.value],
     };
     // 持久化到 localStorage
     saveQualityCheckRecord();
@@ -948,6 +1104,7 @@ watch(
       <ContentGenerator
         v-if="outline.length > 0"
         :outline="outline"
+        :article-topic="project.name"
         @update:outline="updateOutline"
       />
     </div>
