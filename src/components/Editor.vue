@@ -508,11 +508,13 @@ const startQualityCheck = async () => {
   // 生成完整markdown内容
   const fullMarkdown = generateFullMarkdown();
 
-  // 检查是否和上次内容一样，如果是且有结果，直接显示
+  // 检查是否和上次内容一样，如果是且有结果且有suggestions，直接显示
   if (
     fullMarkdown === lastQualityCheck.value.articleContent &&
     lastQualityCheck.value.results &&
-    lastQualityCheck.value.scores
+    lastQualityCheck.value.scores &&
+    lastQualityCheck.value.suggestions &&
+    Array.isArray(lastQualityCheck.value.suggestions)
   ) {
     showPreviousQualityCheck();
     return;
@@ -602,90 +604,30 @@ const startQualityCheck = async () => {
     // 开始依次处理每条评价
     const evaluations = result.data;
 
-    // 根据评价内容和分数，自动生成建议
-    const autoSuggestions = [];
+    // 使用AI生成的个性化建议
+    const suggestionIcons = ["📋", "💡", "🔗", "📝", "🎯", "✨"];
+    let autoSuggestions = [];
 
-    // 检查大纲结构
-    if (evaluations.structureScore <= 12) {
-      autoSuggestions.push({
-        icon: "📋",
-        text: "补充缺失的章节内容，完善文章的整体结构框架",
-      });
-    } else if (evaluations.structureScore <= 16) {
-      autoSuggestions.push({
-        icon: "📋",
-        text: "优化章节间的层次关系，让大纲结构更清晰",
-      });
+    if (evaluations.suggestions && Array.isArray(evaluations.suggestions)) {
+      autoSuggestions = evaluations.suggestions
+        .slice(0, 3)
+        .map((text, index) => ({
+          icon: suggestionIcons[index % suggestionIcons.length],
+          text: text,
+        }));
     }
 
-    // 检查章节内容
-    if (evaluations.contentScore <= 12) {
-      autoSuggestions.push({
-        icon: "💡",
-        text: "增加具体的案例和数据，提升章节内容的充实度",
-      });
-    } else if (evaluations.contentScore <= 16) {
-      autoSuggestions.push({
-        icon: "💡",
-        text: "适当补充更多细节内容，让章节更丰富",
-      });
+    // 如果AI没有返回建议，使用备用建议
+    if (autoSuggestions.length === 0) {
+      const defaultSuggestions = [
+        { icon: "📋", text: "优化章节间的层次关系，让大纲结构更清晰" },
+        { icon: "💡", text: "增加具体的案例和数据，提升内容的充实度" },
+        { icon: "🔗", text: "加强各部分之间的逻辑关联，让论证更严密" },
+      ];
+      autoSuggestions = defaultSuggestions;
     }
 
-    // 检查逻辑严密性
-    if (evaluations.logicScore <= 12) {
-      autoSuggestions.push({
-        icon: "🔗",
-        text: "优化段落间的过渡衔接，增强文章的逻辑连贯性",
-      });
-    } else if (evaluations.logicScore <= 16) {
-      autoSuggestions.push({
-        icon: "🔗",
-        text: "加强各部分之间的逻辑关联，让论证更严密",
-      });
-    }
-
-    // 检查内容质量
-    if (evaluations.qualityScore <= 12) {
-      autoSuggestions.push({
-        icon: "📝",
-        text: "增加深度分析和专业内容，提升文章的内容质量",
-      });
-    } else if (evaluations.qualityScore <= 16) {
-      autoSuggestions.push({
-        icon: "📝",
-        text: "补充一些创新观点或独特见解，让内容更有价值",
-      });
-    }
-
-    // 检查表达清晰度
-    if (evaluations.clarityScore <= 12) {
-      autoSuggestions.push({
-        icon: "🎯",
-        text: "简化复杂句式，让表达更简洁明了",
-      });
-    } else if (evaluations.clarityScore <= 16) {
-      autoSuggestions.push({
-        icon: "🎯",
-        text: "优化语言表达，让文章更生动易读",
-      });
-    }
-
-    // 如果建议不足3条，补充通用建议
-    const defaultSuggestions = [
-      { icon: "💡", text: "增加具体的数据或案例支持，提升说服力" },
-      { icon: "📝", text: "优化段落之间的过渡衔接，增强逻辑性" },
-      { icon: "🎯", text: "简化复杂句式，让表达更简洁明了" },
-      { icon: "📊", text: "增加一些图表或数据可视化内容" },
-      { icon: "✨", text: "优化标题和小标题，让文章结构更清晰" },
-    ];
-
-    // 确保有3条建议
-    while (autoSuggestions.length < 3) {
-      const randomIndex = Math.floor(Math.random() * defaultSuggestions.length);
-      autoSuggestions.push(defaultSuggestions[randomIndex]);
-    }
-
-    suggestions.value = autoSuggestions.slice(0, 3);
+    suggestions.value = autoSuggestions;
 
     for (let i = 0; i < dimensions.length; i++) {
       const dim = dimensions[i];

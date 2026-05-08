@@ -57,9 +57,34 @@ app.post("/api/ai/generate-outline", async (req, res) => {
   }
 });
 
+// 生成子章节API
+app.post("/api/ai/generate-subsections", async (req, res) => {
+  try {
+    const { topic, existingTitles = [] } = req.body;
+
+    if (!topic || typeof topic !== "string") {
+      return res
+        .status(400)
+        .json({ success: false, error: "请提供有效的章节主题" });
+    }
+
+    console.log("正在生成子章节，主题:", topic);
+    const subsections = await aiService.generateSubsections(
+      topic,
+      existingTitles,
+    );
+    console.log("子章节生成成功:", subsections.length, "个子章节");
+
+    res.json({ success: true, data: subsections });
+  } catch (error) {
+    console.error("生成子章节失败:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post("/api/ai/generate-content", async (req, res) => {
   try {
-    const { outline, sectionIndex, contextInfo } = req.body;
+    const { outline, path, contextInfo } = req.body;
 
     if (!outline || !Array.isArray(outline)) {
       return res
@@ -67,11 +92,14 @@ app.post("/api/ai/generate-content", async (req, res) => {
         .json({ success: false, error: "请提供有效的文章大纲" });
     }
 
-    if (typeof sectionIndex !== "number" || sectionIndex < 0) {
+    if (!path || !Array.isArray(path)) {
       return res
         .status(400)
-        .json({ success: false, error: "请提供有效的段落索引" });
+        .json({ success: false, error: "请提供有效的路径" });
     }
+
+    // 为了兼容aiService，需要传递sectionIndex（path[0]），同时contextInfo里包含完整path
+    const sectionIndex = path[0];
 
     const response = await aiService.generateContent(
       outline,
@@ -121,10 +149,23 @@ app.post("/api/ai/generate-content", async (req, res) => {
   }
 });
 
+// 通过完整path定位到章节的辅助函数
+const getSectionByPath = (outline, path) => {
+  let current = outline;
+  for (let i = 0; i < path.length; i++) {
+    if (i < path.length - 1) {
+      current = current[path[i]].children;
+    } else {
+      current = current[path[i]];
+    }
+  }
+  return current;
+};
+
 // 非流式简化版本 - 增强版
 app.post("/api/ai/generate-content-simple", async (req, res) => {
   try {
-    const { outline, sectionIndex, contextInfo } = req.body;
+    const { outline, path, contextInfo } = req.body;
 
     if (!outline || !Array.isArray(outline)) {
       return res
@@ -132,13 +173,13 @@ app.post("/api/ai/generate-content-simple", async (req, res) => {
         .json({ success: false, error: "请提供有效的文章大纲" });
     }
 
-    if (typeof sectionIndex !== "number" || sectionIndex < 0) {
+    if (!path || !Array.isArray(path)) {
       return res
         .status(400)
-        .json({ success: false, error: "请提供有效的段落索引" });
+        .json({ success: false, error: "请提供有效的路径" });
     }
 
-    console.log("正在生成内容，第", sectionIndex + 1, "节");
+    console.log("正在生成内容，path:", path, "contextInfo:", contextInfo);
 
     // 构建完整的上下文信息
     const {
@@ -146,9 +187,13 @@ app.post("/api/ai/generate-content-simple", async (req, res) => {
       completedSections = [], // 前面已完成的章节（包含标题和内容摘要）
       usedKeyPoints = [], // 已经提到过的关键信息（避免重复）
       taskType = "first_generate", // first_generate / polish / expand / shorten
+      isFirstContent = false, // 是否是第一个内容（第1章第1节）
+      positionDescription = "", // 位置描述，如"第1章第2小节"
+      isSubsection = false, // 是否是子小节
     } = contextInfo || {};
 
-    const currentSection = outline[sectionIndex];
+    const currentSection = getSectionByPath(outline, path);
+    const sectionIndex = path[0]; // 从path中提取主章节索引
 
     // 构建已完成章节信息
     let completedContent = "";
@@ -176,18 +221,26 @@ app.post("/api/ai/generate-content-simple", async (req, res) => {
     if (taskType === "first_generate") {
       systemPrompt = `你是一位专业的文章写作助手，擅长根据上下文创作出连贯、有逻辑的内容。
 
-【写作原则】
-1. 上下文连贯性：自然承接上一章内容，为下一章做好铺垫
-2. 避免重复：绝对不要重复【禁止重复的关键点】中列出的内容
-3. 逻辑递进：内容要有层次感，从浅入深展开
-4. 语言风格：保持统一、专业的文风
-5. 只返回正文，不要任何标题、解释、说明
+【核心写作原则】
+1. **上下文连贯性**：用1-2句话自然承接上一章的结尾，为下一章做好铺垫
+2. **严格避免重复**：绝对不要重复【已完成章节摘要】和【禁止重复关键点】中的任何内容
+3. **逻辑递进**：每个章节都要有独特的新内容，不是前面的重复
+4. **边界清晰**：专注于当前章节的主题，不越界讲其他章节的内容
+5. **语言风格统一**：保持专业、一致的文风
+6. **只返回正文**：不要任何标题、解释、说明文字，更不要描述你的思考过程
 
-⚠️ 重要约束：
-- 不要以#、##、###等markdown标题开头
+⚠️ 硬性约束：
+- 开头1-2句必须是承接上一章的过渡句
+- 绝对不要以#、##、###等markdown标题开头
 - 不要重复当前章节的标题
-- 不要添加任何解释说明文字
-- 直接开始撰写正文的第一句话`;
+- 不要添加任何解释说明，更不要说"我需要..."、"让我..."、"子主题为..."这类话
+- 直接开始撰写正文内容
+
+🚫 特别禁止（非常重要）：
+- 如果不是第一章，绝对不要重新定义基本概念！
+- 不要说"任务是指..."这种第一章已经讲过的话！
+- 绝对不要输出你的思考过程、处理步骤或任何中间内容！
+- 直接切入本章的独特内容！`;
 
       userPrompt = `【文章基本信息】
 主题：${articleTopic || "未指定"}
@@ -204,14 +257,31 @@ ${forbiddenPoints || "无"}
 【当前任务】
 正在撰写第${sectionIndex + 1}章
 章节标题：${currentSection.title}
-子主题：${currentSection.children?.join("、") || "无"}
+子主题：${
+        Array.isArray(currentSection.children)
+          ? currentSection.children
+              .map((child) => (typeof child === "object" ? child.title : child))
+              .join("、")
+          : "无"
+      }
 
-请根据以上信息，撰写一段详细的正文内容（约300-500字）。
-内容要求：
-1. 自然承接上一章（如果有的话）
-2. 不要重复【禁止重复的关键点】中提到的任何内容
+📌 本章专属任务：
+- 专注于"${currentSection.title}"这个主题
+- 讲出前面章节没讲过的新内容
+- 体现出本章的独特价值
+
+⚠️ 特别警告：
+${isFirstContent ? "这是文章的第一个内容（第1章第1节），可以做基本定义。" : "这不是第一个内容！前面已经讲过基本概念，本章绝对不要重新定义！直接切入独特内容！"}
+
+📍 当前位置：${positionDescription || "未知位置"}
+
+✍️ 写作要求：
+1. 开头先用1-2句话自然承接上一章
+2. 绝对不要重复已讲过的内容
 3. 内容要具体、有细节，避免空泛
-4. 为下一章做好逻辑铺垫
+4. 专注于本章主题，不越界
+5. 结尾可以为下一章做轻微铺垫
+6. 字数约300-500字
 
 直接返回正文内容，不要任何标题或解释！`;
     } else if (taskType === "polish") {

@@ -16,11 +16,11 @@ class AIService {
       {
         role: "system",
         content:
-          "你是专业内容策划师，输出纯JSON数组，不要包含markdown代码块标记，不要添加任何解释文字。\n要求：\n1. 只生成4-8个不重复的主标题\n2. 主标题要简洁，适合作为文章的章节\n3. 每个主标题的children可以为空或者有少量子点",
+          "你是专业内容策划师，输出纯JSON数组，不要包含markdown代码块标记，不要添加任何解释文字。\n\n【重要要求】\n1. 生成4-8个不重复的主标题\n2. 每个章节要有明确的内容边界，避免章节之间内容重叠\n3. 章节之间要有逻辑递进关系（从基础到深入，从概念到应用）\n4. 每个章节都要有独特的核心价值，不能与其他章节重复\n5. 主标题要简洁，适合作为文章的章节\n6. 每个主标题的children可以为空或者有少量子点",
       },
       {
         role: "user",
-        content: `主题：${topic}。输出格式：[{"title":"章节标题","children":["子点1","子点2"]}]，注意只输出JSON数组，不要其他文字。`,
+        content: `主题：${topic}\n\n请设计一个逻辑严密的大纲，确保：\n1. 每个章节都有独特的定位，不重复\n2. 章节之间有自然的逻辑递进\n3. 前面章节为后面章节做铺垫\n\n输出格式：[{"title":"章节标题","children":["子点1","子点2"]}]，注意只输出JSON数组，不要其他文字。`,
       },
     ];
 
@@ -100,25 +100,53 @@ class AIService {
     }
   }
 
+  // 通过完整path定位到章节
+  getSectionByPath(outline, path) {
+    if (!path || !Array.isArray(path)) {
+      return outline[0]; // fallback
+    }
+    let current = outline;
+    for (let i = 0; i < path.length; i++) {
+      if (i < path.length - 1) {
+        current = current[path[i]].children;
+      } else {
+        current = current[path[i]];
+      }
+    }
+    return current;
+  }
+
   /**
    * 生成章节内容 - 增强版
    * @param {Array} outline - 完整文章大纲
-   * @param {number} sectionIndex - 当前章节索引
-   * @param {Object} contextInfo - 上下文信息
+   * @param {number} sectionIndex - 当前章节索引（兼容用）
+   * @param {Object} contextInfo - 上下文信息（包含path）
    */
   async generateContent(outline, sectionIndex, contextInfo = {}) {
-    if (!outline || !Array.isArray(outline) || sectionIndex >= outline.length) {
-      throw new Error("无效的大纲或段落索引");
+    if (!outline || !Array.isArray(outline)) {
+      throw new Error("无效的大纲");
     }
 
-    const currentSection = outline[sectionIndex];
+    // 优先从contextInfo.path定位，否则使用sectionIndex
+    let currentSection;
+    if (contextInfo.path && Array.isArray(contextInfo.path)) {
+      currentSection = this.getSectionByPath(outline, contextInfo.path);
+    } else {
+      if (sectionIndex >= outline.length) {
+        throw new Error("无效的段落索引");
+      }
+      currentSection = outline[sectionIndex];
+    }
     
     // 构建完整的上下文信息
     const {
       articleTopic = "",
       completedSections = [], // 前面已完成的章节（包含标题和内容摘要）
       usedKeyPoints = [], // 已经提到过的关键信息（避免重复）
-      taskType = "first_generate" // first_generate / polish / expand / shorten
+      taskType = "first_generate", // first_generate / polish / expand / shorten
+      isFirstContent = false, // 是否是第一个内容（第1章第1节）
+      positionDescription = "", // 位置描述，如"第1章第2小节"
+      isSubsection = false // 是否是子小节
     } = contextInfo;
 
     // 构建已完成章节信息
@@ -147,18 +175,26 @@ class AIService {
     if (taskType === "first_generate") {
       systemPrompt = `你是一位专业的文章写作助手，擅长根据上下文创作出连贯、有逻辑的内容。
 
-【写作原则】
-1. 上下文连贯性：自然承接上一章内容，为下一章做好铺垫
-2. 避免重复：绝对不要重复【禁止重复的关键点】中列出的内容
-3. 逻辑递进：内容要有层次感，从浅入深展开
-4. 语言风格：保持统一、专业的文风
-5. 只返回正文，不要任何标题、解释、说明
+【核心写作原则】
+1. **上下文连贯性**：用1-2句话自然承接上一章的结尾，为下一章做好铺垫
+2. **严格避免重复**：绝对不要重复【已完成章节摘要】和【禁止重复关键点】中的任何内容
+3. **逻辑递进**：每个章节都要有独特的新内容，不是前面的重复
+4. **边界清晰**：专注于当前章节的主题，不越界讲其他章节的内容
+5. **语言风格统一**：保持专业、一致的文风
+6. **只返回正文**：不要任何标题、解释、说明文字，更不要描述你的思考过程
 
-⚠️ 重要约束：
-- 不要以#、##、###等markdown标题开头
+⚠️ 硬性约束：
+- 开头1-2句必须是承接上一章的过渡句
+- 绝对不要以#、##、###等markdown标题开头
 - 不要重复当前章节的标题
-- 不要添加任何解释说明文字
-- 直接开始撰写正文的第一句话`;
+- 不要添加任何解释说明，更不要说"我需要..."、"让我..."、"子主题为..."这类话
+- 直接开始撰写正文内容
+
+🚫 特别禁止（非常重要）：
+- 如果不是第一章，绝对不要重新定义基本概念！
+- 不要说"任务是指..."这种第一章已经讲过的话！
+- 绝对不要输出你的思考过程、处理步骤或任何中间内容！
+- 直接切入本章的独特内容！`;
 
       userPrompt = `【文章基本信息】
 主题：${articleTopic || "未指定"}
@@ -175,14 +211,31 @@ ${forbiddenPoints || "无"}
 【当前任务】
 正在撰写第${sectionIndex + 1}章
 章节标题：${currentSection.title}
-子主题：${currentSection.children?.join("、") || "无"}
+子主题：${
+  Array.isArray(currentSection.children)
+    ? currentSection.children
+        .map(child => typeof child === "object" ? child.title : child)
+        .join("、")
+    : "无"
+}
 
-请根据以上信息，撰写一段详细的正文内容（约300-500字）。
-内容要求：
-1. 自然承接上一章（如果有的话）
-2. 不要重复【禁止重复的关键点】中提到的任何内容
+📌 本章专属任务：
+- 专注于"${currentSection.title}"这个主题
+- 讲出前面章节没讲过的新内容
+- 体现出本章的独特价值
+
+⚠️ 特别警告：
+${isFirstContent ? "这是文章的第一个内容（第1章第1节），可以做基本定义。" : "这不是第一个内容！前面已经讲过基本概念，本章绝对不要重新定义！直接切入独特内容！"}
+
+📍 当前位置：${positionDescription || "未知位置"}
+
+✍️ 写作要求：
+1. 开头先用1-2句话自然承接上一章
+2. 绝对不要重复已讲过的内容
 3. 内容要具体、有细节，避免空泛
-4. 为下一章做好逻辑铺垫
+4. 专注于本章主题，不越界
+5. 结尾可以为下一章做轻微铺垫
+6. 字数约300-500字
 
 直接返回正文内容，不要任何标题或解释！`;
     } else if (taskType === "polish") {
@@ -368,11 +421,12 @@ ${contextInfo.originalContent || ""}
         role: "user",
         content: `${articleContent}
 
-请从以下5个维度评价这篇文章：
+请从以下5个维度评价这篇文章，并给出3条具体的改进建议：
 
 【评价要求】
 - 每个维度用50字以内概括评价
 - 每个维度给出0-20分的分数（满分20分）
+- 给出3条具体的、个性化的改进建议（每条建议不超过50字）
 
 【输出格式】
 必须严格按照以下JSON格式输出，不要添加任何其他文字：
@@ -386,7 +440,12 @@ ${contextInfo.originalContent || ""}
   "contentScore": 16,
   "logicScore": 14,
   "qualityScore": 15,
-  "clarityScore": 17
+  "clarityScore": 17,
+  "suggestions": [
+    "第一条具体建议",
+    "第二条具体建议",
+    "第三条具体建议"
+  ]
 }`,
       },
     ];
@@ -572,6 +631,93 @@ ${contextInfo.originalContent || ""}
     } catch (error) {
       console.error("质检失败:", error);
       throw new Error("质检失败: " + error.message);
+    }
+  }
+
+  // 生成子章节
+  async generateSubsections(topic, existingTitles = []) {
+    const existingTitlesStr = existingTitles.length > 0 
+      ? existingTitles.join("、") 
+      : "无";
+
+    const messages = [
+      {
+        role: "system",
+        content: `你是专业的内容策划师。请为给定的章节主题生成3-5个合适的子章节标题。
+
+⚠️ 非常重要：
+- 只返回标题本身，不要任何解释、说明或描述性文字
+- 每个标题单独一行，不要编号
+- 标题要简洁，10-15字左右
+- 标题要具体，有实际内容
+- 不要生成markdown格式
+- 不要生成JSON格式
+- 直接返回纯文本，每行一个标题
+
+示例输出：
+定义与概念
+核心功能介绍
+发展历史沿革
+应用场景分析`,
+      },
+      {
+        role: "user",
+        content: `章节主题：${topic}
+
+已有标题（请避免重复）：${existingTitlesStr}
+
+请生成3-5个子章节标题，每行一个：`,
+      },
+    ];
+
+    try {
+      const response = await this.client.chatCompletions({
+        model: this.model,
+        messages,
+        temperature: 0.6,
+        max_tokens: 300,
+      });
+
+      const message = response.data.choices[0]?.message;
+      let content = message?.content || message?.reasoning_content || "";
+
+      console.log("AI返回的子章节内容:", content);
+
+      if (!content.trim()) {
+        return ["要点一", "要点二", "要点三"];
+      }
+
+      // 按行分割
+      let items = content
+        .split(/[\n\r]/)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+
+      // 过滤掉描述性文字（包含"、"，"。"，"："，"！"，"？"等标点的可能不是标题）
+      items = items.filter((item) => {
+        const hasPunctuation = /[、。：！？!?]/.test(item);
+        const isTooLong = item.length > 30;
+        const isDescription = item.includes("需要") || item.includes("我") || item.includes("请") || item.includes("生成");
+        return !hasPunctuation && !isTooLong && !isDescription;
+      });
+
+      // 清理序号
+      items = items.map((item) => item.replace(/^[\d.、\-\s\[\]]+/, "").trim());
+
+      // 过滤空的和太短的
+      items = items.filter((item) => item.length >= 3 && item.length <= 20);
+
+      console.log("解析后的子章节:", items);
+
+      if (items.length >= 2) {
+        return items.slice(0, 5);
+      }
+
+      // 如果解析结果不好，返回fallback
+      return ["核心概念", "主要功能", "应用场景"];
+    } catch (error) {
+      console.error("生成子章节失败:", error);
+      return ["核心概念", "主要功能", "应用场景"];
     }
   }
 

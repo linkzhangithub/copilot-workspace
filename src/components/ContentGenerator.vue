@@ -120,80 +120,68 @@ const flatContent = computed(() => {
 // 路径转字符串 key
 const getPathKey = (path) => path.join("-");
 
+// 通过完整path定位到章节
+const getSectionByPath = (outline, path) => {
+  let current = outline;
+  for (let i = 0; i < path.length; i++) {
+    if (i < path.length - 1) {
+      current = current[path[i]].children;
+    } else {
+      current = current[path[i]];
+    }
+  }
+  return current;
+};
+
+// 通过path更新章节内容
+const updateSectionByPath = (path, content) => {
+  const deepClone = (arr) => {
+    return arr.map(item => ({
+      ...item,
+      children: item.children ? deepClone(item.children) : [],
+    }));
+  };
+  const newOutline = deepClone(props.outline);
+  let current = newOutline;
+  for (let i = 0; i < path.length - 1; i++) {
+    current = current[path[i]].children;
+  }
+  current[path[path.length - 1]] = { ...current[path[path.length - 1]], content };
+  emit("update:outline", newOutline);
+};
+
 // 清理标题中的 markdown 标记
 const cleanTitle = (title) => {
   if (!title) return title;
   return title.replace(/^#+\s*/, "").trim();
 };
 
-// 清理内容中重复的标题 - 更激进的清理
+// 清理内容中重复的标题 - 温和的清理
 const cleanDuplicateTitleInContent = (content, title) => {
   if (!content) return content;
 
   let cleaned = content.trim();
 
-  // 准备标题的各种变体（去掉标点、空格等）用于匹配
-  const cleanForMatch = (text) => {
-    return text.replace(/[、\(\)\[\]（）【】\.\,，。\s\-]/g, '').toLowerCase();
-  };
-  
-  const targetTitleClean = title ? cleanForMatch(title) : '';
-  
-  // 按行分割，查找并移除匹配的标题行
+  // 只清理markdown标题和非常明显的重复标题
   const lines = cleaned.split('\n');
   const filteredLines = [];
-  let removedCount = 0;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineTrim = line.trim();
     
-    // 前5行，或者前2行（如果行数少），进行严格清理
-    if (i < Math.min(5, Math.max(2, lines.length * 0.3)) && removedCount < 3) {
-      
-      // 1. 直接移除所有以#开头的行（不管是不是标题）
+    // 只在前3行进行清理
+    if (i < 3) {
+      // 1. 移除markdown标题
       if (lineTrim.startsWith('#')) {
-        removedCount++;
         continue;
       }
       
-      // 2. 如果有title，检查是否包含title相关内容
-      if (title && targetTitleClean) {
-        const lineClean = cleanForMatch(lineTrim);
-        
-        // 完全匹配或者部分匹配都移除
-        if (lineClean.length > 0) {
-          if (lineClean.includes(targetTitleClean) || targetTitleClean.includes(lineClean)) {
-            removedCount++;
-            continue;
-          }
-          
-          // 检查关键词匹配
-          const titleWords = title.split(/[、\s]+/);
-          for (const word of titleWords) {
-            if (word.length >= 2 && lineClean.includes(cleanForMatch(word))) {
-              removedCount++;
-              continue;
-            }
-          }
-        }
-      }
-      
-      // 3. 如果行很短（小于15个字符）并且看起来像标题，也移除
-      if (lineTrim.length > 0 && lineTrim.length < 15) {
-        // 检查是否有常见的标题特征
-        const titlePatterns = [
-          /^第[一二三四五六七八九十\d]+[章节部分条]/,
-          /^[一二三四五六七八九十]+[、\.]/,
-          /^\d+[\.\)、]/,
-          /^概述|简介|前言|结论|总结|参考文献/
-        ];
-        
-        for (const pattern of titlePatterns) {
-          if (pattern.test(lineTrim)) {
-            removedCount++;
-            continue;
-          }
+      // 2. 只有当行内容和标题几乎完全一样时才移除
+      if (title && lineTrim.length > 0) {
+        const similarity = calculateSimilarity(lineTrim, title);
+        if (similarity > 0.8) { // 80%以上相似才移除
+          continue;
         }
       }
     }
@@ -204,6 +192,26 @@ const cleanDuplicateTitleInContent = (content, title) => {
   cleaned = filteredLines.join('\n').trim();
 
   return cleaned;
+};
+
+// 简单的字符串相似度计算
+const calculateSimilarity = (str1, str2) => {
+  const s1 = str1.toLowerCase().replace(/\s/g, '');
+  const s2 = str2.toLowerCase().replace(/\s/g, '');
+  
+  if (s1.length === 0 || s2.length === 0) return 0;
+  
+  let matches = 0;
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+  
+  for (let i = 0; i < shorter.length; i++) {
+    if (longer.includes(shorter[i])) {
+      matches++;
+    }
+  }
+  
+  return matches / longer.length;
 };
 
 // 获取显示编号
@@ -228,23 +236,6 @@ const getOperationDesc = (op) => {
     regenerate: "重新生成中"
   };
   return map[op] || "处理中";
-};
-
-// 通过路径更新章节内容
-const updateSectionByPath = (path, content) => {
-  const deepClone = (arr) => {
-    return arr.map(item => ({
-      ...item,
-      children: item.children ? deepClone(item.children) : [],
-    }));
-  };
-  const newOutline = deepClone(props.outline);
-  let current = newOutline;
-  for (let i = 0; i < path.length - 1; i++) {
-    current = current[path[i]].children;
-  }
-  current[path[path.length - 1]] = { ...current[path[path.length - 1]], content };
-  emit("update:outline", newOutline);
 };
 
 // 流式请求工具函数
@@ -357,13 +348,17 @@ const extractKeyPoints = (content) => {
 /**
  * 构建上下文信息对象
  */
-const buildContextInfo = (sectionIndex, taskType = "first_generate", originalContent = "") => {
-  // 收集前面已完成的章节
+const buildContextInfo = (path, taskType = "first_generate", originalContent = "") => {
+  // 收集前面已完成的内容（包括主章节和子小节）
   const completedSections = [];
   const usedKeyPoints = [];
   
-  // 遍历前面的章节
-  for (let i = 0; i < sectionIndex; i++) {
+  // 解析当前位置信息
+  const isSubsection = path.length > 1;
+  const mainSectionIndex = path[0];
+  
+  // 第一步：收集所有前面的主章节
+  for (let i = 0; i < mainSectionIndex; i++) {
     const section = props.outline[i];
     if (section && section.content) {
       const summary = generateContentSummary(section.content);
@@ -372,18 +367,56 @@ const buildContextInfo = (sectionIndex, taskType = "first_generate", originalCon
         contentSummary: summary
       });
       
-      // 提取关键信息点
       const keyPoints = extractKeyPoints(section.content);
       usedKeyPoints.push(...keyPoints);
     }
   }
+  
+  // 第二步：如果是子小节，收集同一主章节下前面的子小节
+  if (isSubsection && props.outline[mainSectionIndex]) {
+    const mainSection = props.outline[mainSectionIndex];
+    if (mainSection.children && mainSection.children.length > 0) {
+      for (let i = 0; i < path[path.length - 1]; i++) {
+        const subsection = mainSection.children[i];
+        // 查找子小节的内容（需要遍历outline找）
+        let current = props.outline[mainSectionIndex];
+        let found = false;
+        // 简单处理：如果有content就用
+        if (subsection && subsection.content) {
+          const summary = generateContentSummary(subsection.content);
+          completedSections.push({
+            title: subsection.title,
+            contentSummary: summary
+          });
+          
+          const keyPoints = extractKeyPoints(subsection.content);
+          usedKeyPoints.push(...keyPoints);
+        }
+      }
+    }
+  }
+  
+  // 生成位置描述
+  let positionDescription = "";
+  if (isSubsection) {
+    positionDescription = `第${mainSectionIndex + 1}章第${path[path.length - 1] + 1}小节`;
+  } else {
+    positionDescription = `第${mainSectionIndex + 1}章`;
+  }
+  
+  // 判断是否是开头（第1章第1节）
+  const isFirstContent = (mainSectionIndex === 0 && (!isSubsection || path[path.length - 1] === 0));
   
   return {
     articleTopic: props.articleTopic,
     completedSections: completedSections,
     usedKeyPoints: usedKeyPoints.slice(0, 8), // 限制最多8个关键点
     taskType: taskType,
-    originalContent: originalContent
+    originalContent: originalContent,
+    positionDescription: positionDescription,
+    isFirstContent: isFirstContent,
+    isSubsection: isSubsection,
+    path: path
   };
 };
 
@@ -395,35 +428,12 @@ const generateSection = async (path) => {
   const pathKey = getPathKey(path);
   generatingPath.value = pathKey;
 
-  // 获取当前section的title
-  const getCurrentSection = () => {
-    let current = props.outline;
-    for (let i = 0; i < path.length - 1; i++) {
-      current = current[path[i]].children;
-    }
-    return current[path[path.length - 1]];
-  };
-  const currentSection = getCurrentSection();
+  // 通过完整path定位到章节（使用外部已定义的函数）
+  const currentSection = getSectionByPath(props.outline, path);
   const sectionTitle = currentSection.title;
 
   const updateContent = (content) => {
-    const deepClone = (arr) => {
-      return arr.map(item => ({
-        ...item,
-        children: item.children ? deepClone(item.children) : [],
-      }));
-    };
-
-    const newOutline = deepClone(props.outline);
-    let current = newOutline;
-    
-    for (let i = 0; i < path.length - 1; i++) {
-      current = current[path[i]].children;
-    }
-
-    current[path[path.length - 1]].content = content;
-    emit("update:outline", newOutline);
-    
+    updateSectionByPath(path, content);
     // 如果是移动端，更新内容后自动调整高度
     if (isMobile.value) {
       nextTick(() => {
@@ -436,15 +446,14 @@ const generateSection = async (path) => {
     console.log("开始生成内容，path:", path);
     
     // 构建上下文信息
-    const sectionIndex = path[0]; // 使用第一个路径索引作为sectionIndex
-    const contextInfo = buildContextInfo(sectionIndex, "first_generate");
+    const contextInfo = buildContextInfo(path, "first_generate");
     
     const response = await fetch("/api/ai/generate-content-simple", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         outline: props.outline,
-        sectionIndex: sectionIndex,
+        path: path,
         contextInfo: contextInfo
       }),
     });
@@ -494,11 +503,7 @@ const rewriteSection = async (path, operation) => {
   const pathKey = getPathKey(path);
   
   // 找到对应章节
-  let current = props.outline;
-  for (let i = 0; i < path.length - 1; i++) {
-    current = current[path[i]].children;
-  }
-  const section = current[path[path.length - 1]];
+  const section = getSectionByPath(props.outline, path);
   const sectionTitle = section.title;
   
   if (!section.content) return;
@@ -510,8 +515,7 @@ const rewriteSection = async (path, operation) => {
 
   try {
     // 构建上下文信息
-    const sectionIndex = path[0];
-    const contextInfo = buildContextInfo(sectionIndex, operation, section.content);
+    const contextInfo = buildContextInfo(path, operation, section.content);
     
     // 调用增强版API
     const response = await fetch("/api/ai/generate-content-simple", {
@@ -519,7 +523,7 @@ const rewriteSection = async (path, operation) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         outline: props.outline,
-        sectionIndex: sectionIndex,
+        path: path,
         contextInfo: contextInfo
       }),
     });

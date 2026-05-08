@@ -67,6 +67,23 @@ const toggleExpand = (path, event) => {
   expandedState.value[key] = !expandedState.value[key];
 };
 
+// 收集整个大纲中已有的所有标题
+const getAllExistingTitles = () => {
+  const titles = new Set();
+  const collect = (items) => {
+    items.forEach((item) => {
+      if (item.title) {
+        titles.add(item.title.trim().toLowerCase());
+      }
+      if (item.children && item.children.length > 0) {
+        collect(item.children);
+      }
+    });
+  };
+  collect(props.outline);
+  return titles;
+};
+
 const addSubSectionByPath = async (path, event) => {
   event.stopPropagation();
 
@@ -74,28 +91,34 @@ const addSubSectionByPath = async (path, event) => {
   generatingPath.value = pathKey;
 
   try {
-    const sectionIndex = path[0];
-    const currentSection = props.outline[sectionIndex];
+    const currentSection = getSectionByPath(path);
+    const existingTitles = getAllExistingTitles();
 
     // 调用AI生成子章节
-    const response = await fetch("/api/ai/generate-outline", {
+    const response = await fetch("/api/ai/generate-subsections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: currentSection.title }),
+      body: JSON.stringify({
+        topic: currentSection.title,
+        existingTitles: Array.from(existingTitles),
+      }),
     });
 
     const result = await response.json();
 
     let subSections = [];
 
-    if (result.success && result.data.length > 0) {
-      // 使用AI返回的子章节
-      const firstItem = result.data[0];
-      if (firstItem.children && firstItem.children.length > 0) {
-        subSections = firstItem.children;
-      } else if (result.data.length > 1) {
-        subSections = result.data.slice(1).map((item) => item.title);
-      } else {
+    if (result.success && result.data && result.data.length > 0) {
+      // 使用AI返回的子章节，并过滤掉已有的
+      subSections = result.data.filter((title) => {
+        const normalized = (typeof title === "string" ? title : title.title)
+          .trim()
+          .toLowerCase();
+        return !existingTitles.has(normalized);
+      });
+
+      // 如果过滤后为空，使用fallback
+      if (subSections.length === 0) {
         subSections = ["要点一", "要点二", "要点三"];
       }
     } else {
@@ -278,7 +301,7 @@ const cleanTitle = (title) => {
   return title.replace(/^#+\s*/, "").trim();
 };
 
-const getDisplayNumber = (path) => path.map((p) => p + 1).join(".") + ".";
+const getDisplayNumber = (path) => path.map((p) => p + 1).join(".");
 
 // 拖拽相关函数
 const handleDragStart = (path, event) => {
