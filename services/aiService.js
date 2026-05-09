@@ -759,22 +759,82 @@ ${contextInfo.originalContent || ""}
         .map((item) => item.trim())
         .filter((item) => item.length > 0);
 
-      // 过滤掉描述性文字（包含"、"，"。"，"："，"！"，"？"等标点的可能不是标题）
+      // 更严格的过滤逻辑
       items = items.filter((item) => {
-        const hasPunctuation = /[、。：！？!?]/.test(item);
-        const isTooLong = item.length > 30;
-        const isDescription =
-          item.includes("需要") ||
-          item.includes("我") ||
-          item.includes("请") ||
-          item.includes("生成");
-        return !hasPunctuation && !isTooLong && !isDescription;
+        // 1. 长度检查
+        if (item.length < 3 || item.length > 30) return false;
+
+        // 2. 过滤明显的提示词或说明文字（只过滤完整的提示词短语）
+        const forbiddenPhrases = [
+          "只返回",
+          "不要任何",
+          "每个标题",
+          "单独一行",
+          "不要编号",
+          "标题简洁",
+          "不要生成",
+          "标题本身",
+          "解释说明",
+          "描述文字",
+          "markdown",
+          "JSON",
+          "格式",
+          "示例输出",
+          "需要我",
+          "请生成",
+          "要求",
+          "注意事项",
+          "重要提示",
+        ];
+
+        // 检查是否包含明显的提示词内容
+        const hasForbidden = forbiddenPhrases.some((phrase) =>
+          item.toLowerCase().includes(phrase.toLowerCase()),
+        );
+
+        // 额外检查：如果标题看起来像是指令而非章节标题
+        const looksLikeInstruction =
+          item.startsWith("请") ||
+          item.startsWith("需要") ||
+          item.startsWith("你") ||
+          item.startsWith("我") ||
+          item.includes("返回") ||
+          item.includes("生成") ||
+          item.includes("不要") ||
+          item.includes("注意");
+
+        if (hasForbidden || looksLikeInstruction) {
+          console.log("过滤掉提示词内容:", item);
+          return false;
+        }
+
+        // 3. 过滤包含特殊标点的
+        const hasSpecialPunctuation = /[、。：！？!?【】（）\[\]「」]/.test(
+          item,
+        );
+        if (hasSpecialPunctuation) return false;
+
+        // 4. 过滤"要点一"这样的占位标题
+        if (item.match(/^要点[一二三四五六七八九十\d]+$/)) {
+          console.log("过滤掉占位标题:", item);
+          return false;
+        }
+
+        // 5. 标题应该是名词性短语，不是完整句子（不应该包含太多动词）
+        const verbCount = (
+          item.match(
+            /是|有|在|做|为|用|能|要|会|可|就|也|都|很|最|更|还|而/gi,
+          ) || []
+        ).length;
+        if (verbCount >= 2 && item.length > 15) return false;
+
+        return true;
       });
 
       // 清理序号
       items = items.map((item) => item.replace(/^[\d.、\-\s\[\]]+/, "").trim());
 
-      // 过滤空的和太短的
+      // 再次过滤空的和太短的
       items = items.filter((item) => item.length >= 3 && item.length <= 20);
 
       console.log("解析后的子章节:", items);
@@ -783,12 +843,39 @@ ${contextInfo.originalContent || ""}
         return items.slice(0, 5);
       }
 
-      // 如果解析结果不好，返回fallback
-      return ["核心概念", "主要功能", "应用场景"];
+      // 如果解析结果不好，返回更合理的fallback（基于主题生成）
+      const defaultTitles = this.getDefaultSubsectionTitles(topic);
+      console.log("使用默认子章节:", defaultTitles);
+      return defaultTitles;
     } catch (error) {
       console.error("生成子章节失败:", error);
-      return ["核心概念", "主要功能", "应用场景"];
+      // 出错时也返回基于主题的默认标题
+      return this.getDefaultSubsectionTitles(topic);
     }
+  }
+
+  getDefaultSubsectionTitles(topic) {
+    // 基于主题生成更合理的默认标题，而不是固定的"要点一"
+    const commonPrefixes = [
+      "核心概念",
+      "主要功能",
+      "应用场景",
+      "实现原理",
+      "技术要点",
+    ];
+
+    // 如果主题包含某些关键词，可以生成更贴合的标题
+    let titles = [...commonPrefixes];
+
+    if (topic.includes("数据") || topic.includes("分析")) {
+      titles = ["数据来源", "分析方法", "指标设计", "可视化展示", "应用案例"];
+    } else if (topic.includes("设计") || topic.includes("原则")) {
+      titles = ["设计理念", "核心原则", "最佳实践", "常见错误", "优化方案"];
+    } else if (topic.includes("技术") || topic.includes("实现")) {
+      titles = ["技术架构", "核心模块", "实现流程", "关键技术", "性能优化"];
+    }
+
+    return titles.slice(0, 3);
   }
 
   // 格式化大纲用于质检
