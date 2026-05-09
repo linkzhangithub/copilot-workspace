@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import Icon from "./Icon.vue";
 import {
   Edit3,
@@ -28,20 +28,28 @@ const editingValue = ref("");
 const editInputRefs = ref({});
 const expandedState = ref({});
 const generatingPath = ref(null);
-const draggedIndex = ref(null);
-const overIndex = ref(null);
-const touchStartY = ref(0);
-const isTouchDragging = ref(false);
+
+// 拖拽相关状态
+const isDragging = ref(false);
+const dragIndex = ref(-1);
+const dragStartY = ref(0);
+const currentDragY = ref(0);
+const itemRefs = ref([]);
+const outlineListRef = ref(null);
+const localOutline = ref([]);
 
 const flatOutline = computed(() => {
   const result = [];
+  const outlineToUse = isDragging.value && localOutline.value.length > 0 
+    ? localOutline.value 
+    : props.outline;
 
   const flatten = (items, path = [], level = 0, parentCollapsed = false) => {
     items.forEach((item, index) => {
       const currentPath = [...path, index];
       const pathKey = getPathKey(currentPath);
       const hasChildren = item.children && item.children.length > 0;
-      const isCollapsed = expandedState.value[pathKey] ?? false;
+      const isCollapsed = expandedState.value[pathKey] ?? true;
 
       result.push({
         ...item,
@@ -57,19 +65,34 @@ const flatOutline = computed(() => {
     });
   };
 
-  flatten(props.outline);
+  flatten(outlineToUse);
   return result;
 });
+
+// 获取一级章节的索引映射
+const getLevel0Info = () => {
+  const level0Info = [];
+  flatOutline.value.forEach((item, idx) => {
+    if (item.level === 0) {
+      level0Info.push({ 
+        index: item.path[0], 
+        flatIndex: idx,
+        item: item
+      });
+    }
+  });
+  return level0Info;
+};
 
 const getPathKey = (path) => path.join("-");
 
 const toggleExpand = (path, event) => {
   if (event) event.stopPropagation();
   const key = getPathKey(path);
-  expandedState.value[key] = !expandedState.value[key];
+  const current = expandedState.value[key] ?? true;
+  expandedState.value[key] = !current;
 };
 
-// 收集整个大纲中已有的所有标题
 const getAllExistingTitles = () => {
   const titles = new Set();
   const collect = (items) => {
@@ -96,7 +119,6 @@ const addSubSectionByPath = async (path, event) => {
     const currentSection = getSectionByPath(path);
     const existingTitles = getAllExistingTitles();
 
-    // 调用AI生成子章节
     const response = await fetch("/api/ai/generate-subsections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -111,7 +133,6 @@ const addSubSectionByPath = async (path, event) => {
     let subSections = [];
 
     if (result.success && result.data && result.data.length > 0) {
-      // 使用AI返回的子章节，并过滤掉已有的
       subSections = result.data.filter((title) => {
         const normalized = (typeof title === "string" ? title : title.title)
           .trim()
@@ -119,7 +140,6 @@ const addSubSectionByPath = async (path, event) => {
         return !existingTitles.has(normalized);
       });
 
-      // 如果过滤后为空，使用fallback
       if (subSections.length === 0) {
         subSections = ["要点一", "要点二", "要点三"];
       }
@@ -129,7 +149,6 @@ const addSubSectionByPath = async (path, event) => {
 
     const timestamp = Date.now();
 
-    // 逐个显示子章节，有动画效果
     for (let i = 0; i < subSections.length; i++) {
       const deepClone = (arr) => {
         return arr.map((item) => ({
@@ -146,7 +165,6 @@ const addSubSectionByPath = async (path, event) => {
         current[path[path.length - 1]].children = [];
       }
 
-      // 添加到i位置（当前这一步）
       const title = subSections[i];
       current[path[path.length - 1]].children.push({
         id: `subsection-${timestamp}-${i}`,
@@ -156,7 +174,6 @@ const addSubSectionByPath = async (path, event) => {
 
       emit("update:outline", newOutline);
 
-      // 延迟一下，让动画更自然（最后一个不需要延迟）
       if (i < subSections.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
@@ -164,7 +181,6 @@ const addSubSectionByPath = async (path, event) => {
   } catch (err) {
     console.error("生成子章节失败:", err);
 
-    // 如果API失败，使用fallback数据，也用逐个显示效果
     const fallbackSections = ["要点一", "要点二", "要点三"];
     const timestamp = Date.now();
 
@@ -305,125 +321,96 @@ const cleanTitle = (title) => {
 
 const getDisplayNumber = (path) => path.map((p) => p + 1).join(".");
 
-// 拖拽相关函数
+// 收起所有展开的小节
+const collapseAll = () => {
+  expandedState.value = {};
+};
+
+// 深拷贝函数
+const deepClone = (arr) => {
+  return arr.map((item) => ({
+    ...item,
+    children: item.children ? deepClone(item.children) : [],
+  }));
+};
+
+// ================= 拖拽核心逻辑 =================
+
 const handleDragStart = (path, event) => {
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", path[0].toString());
-  }
-  draggedIndex.value = path[0];
-};
-
-const handleDragOver = (path, event) => {
+  if (isDragging.value) return;
+  
+  // 开始拖拽时，收起所有展开的小节
+  collapseAll();
+  
+  dragIndex.value = path[0];
+  
+  // 初始化本地状态
+  localOutline.value = deepClone(props.outline);
+  
+  // 记录初始位置
+  nextTick(() => {
+    dragStartY.value = event.clientY;
+    currentDragY.value = 0;
+    isDragging.value = true;
+  });
+  
+  document.addEventListener('mousemove', handleDragMove);
+  document.addEventListener('mouseup', handleDragEnd);
   event.preventDefault();
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = "move";
-  }
-  overIndex.value = path[0];
+  event.stopPropagation();
 };
 
-const handleDragLeave = () => {
-  overIndex.value = null;
-};
-
-const handleDrop = (targetPath, event) => {
-  event.preventDefault();
-  const targetIndex = targetPath[0];
-
-  if (draggedIndex.value === null || draggedIndex.value === targetIndex) {
-    draggedIndex.value = null;
-    overIndex.value = null;
-    return;
-  }
-
-  const deepClone = (arr) => {
-    return arr.map((item) => ({
-      ...item,
-      children: item.children ? deepClone(item.children) : [],
-    }));
-  };
-
-  const newOutline = deepClone(props.outline);
-  const [removed] = newOutline.splice(draggedIndex.value, 1);
-  newOutline.splice(targetIndex, 0, removed);
-
-  emit("update:outline", newOutline);
-
-  draggedIndex.value = null;
-  overIndex.value = null;
-};
-
-const handleDragEnd = () => {
-  draggedIndex.value = null;
-  overIndex.value = null;
-};
-
-// 移动端触摸事件
-const touchMoveThreshold = 10; // 移动超过10px才认为是拖动
-
-const handleTouchStart = (path, event) => {
-  if (event.touches.length !== 1) return;
-  touchStartY.value = event.touches[0].clientY;
-  isTouchDragging.value = false; // 初始不认为是拖动
-  draggedIndex.value = path[0];
-};
-
-const handleTouchMove = (path, event) => {
-  if (event.touches.length !== 1) return;
-
-  const touch = event.touches[0];
-  const diffY = Math.abs(touch.clientY - touchStartY.value);
-
-  // 只有移动超过阈值才认为是拖动
-  if (!isTouchDragging.value && diffY > touchMoveThreshold) {
-    isTouchDragging.value = true;
-    event.preventDefault(); // 防止滚动
-  }
-
-  if (isTouchDragging.value) {
-    event.preventDefault();
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (target) {
-      const wrapper = target.closest(".outline-item-wrapper");
-      if (wrapper) {
-        const index = parseInt(wrapper.dataset.index);
-        if (!isNaN(index) && index !== draggedIndex.value) {
-          overIndex.value = index;
-        }
-      }
-    }
+const handleDragMove = (event) => {
+  if (!isDragging.value || dragIndex.value === -1) return;
+  
+  const deltaY = event.clientY - dragStartY.value;
+  
+  // 限制拖拽范围（视觉上不能超出大纲区域）
+  const itemHeight = 66; // 预估每个元素的高度 + gap
+  const maxDragUp = -dragIndex.value * itemHeight; // 最大向上拖拽距离
+  const maxDragDown = (localOutline.value.length - 1 - dragIndex.value) * itemHeight; // 最大向下拖拽距离
+  currentDragY.value = Math.max(maxDragUp, Math.min(maxDragDown, deltaY));
+  
+  // 计算应该交换到的位置
+  const movedItems = Math.round(deltaY / itemHeight);
+  let targetPosition = dragIndex.value + movedItems;
+  
+  // 限制范围
+  targetPosition = Math.max(0, Math.min(targetPosition, localOutline.value.length - 1));
+  
+  // 如果位置变化，立即交换本地状态
+  if (targetPosition !== dragIndex.value) {
+    const [removed] = localOutline.value.splice(dragIndex.value, 1);
+    localOutline.value.splice(targetPosition, 0, removed);
+    
+    // 更新拖拽索引
+    dragIndex.value = targetPosition;
+    
+    // 重置拖拽起点，避免累积误差
+    dragStartY.value = event.clientY;
+    currentDragY.value = 0;
   }
 };
 
-const handleTouchEnd = (path, event) => {
-  if (!isTouchDragging.value) {
-    // 如果不是拖动，重置状态
-    draggedIndex.value = null;
-    overIndex.value = null;
-    return;
+const handleDragEnd = (event) => {
+  if (!isDragging.value) return;
+  
+  document.removeEventListener('mousemove', handleDragMove);
+  document.removeEventListener('mouseup', handleDragEnd);
+  
+  // 提交最终结果
+  if (localOutline.value.length > 0) {
+    emit("update:outline", localOutline.value);
   }
-
-  isTouchDragging.value = false;
-
-  if (overIndex.value !== null && draggedIndex.value !== overIndex.value) {
-    const deepClone = (arr) => {
-      return arr.map((item) => ({
-        ...item,
-        children: item.children ? deepClone(item.children) : [],
-      }));
-    };
-    const newOutline = deepClone(props.outline);
-    const [removed] = newOutline.splice(draggedIndex.value, 1);
-    newOutline.splice(overIndex.value, 0, removed);
-    emit("update:outline", newOutline);
-  }
-
-  draggedIndex.value = null;
-  overIndex.value = null;
+  
+  // 重置所有状态
+  isDragging.value = false;
+  dragIndex.value = -1;
+  currentDragY.value = 0;
+  localOutline.value = [];
 };
 
 const checkIsMobile = () => {
-  // 检测是否是真实的移动设备
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;
   const isTouchDevice =
     "ontouchstart" in window || navigator.maxTouchPoints > 0;
@@ -443,7 +430,27 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("click", handleGlobalClick);
   window.removeEventListener("resize", checkIsMobile);
+  document.removeEventListener('mousemove', handleDragMove);
+  document.removeEventListener('mouseup', handleDragEnd);
 });
+
+// 计算元素的偏移量样式
+const getItemStyle = (item, index) => {
+  if (!item || item.level !== 0) return {};
+  
+  // 只有当前正在拖拽的元素才有跟随鼠标的效果
+  if (isDragging.value && item.path[0] === dragIndex.value) {
+    return {
+      position: 'relative',
+      zIndex: 1000,
+      transform: `translateY(${currentDragY.value}px) scale(1.02)`,
+      boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+      transition: 'box-shadow 0.15s ease, transform 0s',
+    };
+  }
+  
+  return {};
+};
 </script>
 
 <template>
@@ -458,121 +465,166 @@ onUnmounted(() => {
       <span class="outline-count">{{ outline.length }} 个章节</span>
     </div>
 
-    <div class="outline-list">
-      <div
-        v-for="item in flatOutline"
-        :key="getPathKey(item.path)"
-        class="outline-item-wrapper"
-        :data-index="item.level === 0 ? item.path[0] : undefined"
-        :class="[
-          `outline-item-wrapper-level-${item.level}`,
-          {
-            dragging: item.level === 0 && draggedIndex === item.path[0],
-            'drag-over': item.level === 0 && overIndex === item.path[0],
-          },
-        ]"
-        :draggable="item.level === 0"
-        @dragstart="
-          item.level === 0 ? handleDragStart(item.path, $event) : null
-        "
-        @dragover="item.level === 0 ? handleDragOver(item.path, $event) : null"
-        @dragleave="item.level === 0 ? handleDragLeave() : null"
-        @drop="item.level === 0 ? handleDrop(item.path, $event) : null"
-        @dragend="item.level === 0 ? handleDragEnd() : null"
-        @touchstart="
-          item.level === 0 ? handleTouchStart(item.path, $event) : null
-        "
-        @touchmove="
-          item.level === 0 ? handleTouchMove(item.path, $event) : null
-        "
-        @touchend="item.level === 0 ? handleTouchEnd(item.path, $event) : null"
-      >
-        <div
-          class="outline-item"
-          :class="{ clickable: item.hasChildren }"
-          @click="item.hasChildren ? toggleExpand(item.path) : null"
-        >
-          <div class="item-left">
-            <div class="outline-number">{{ getDisplayNumber(item.path) }}</div>
-            <button
-              v-if="item.hasChildren"
-              class="expand-btn"
-              :class="{ expanded: !item.isCollapsed }"
-            >
-              <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
-              <Icon v-else name="Minus" :size="16" />
-            </button>
+    <div ref="outlineListRef" class="outline-list">
+      <template v-for="(item, index) in flatOutline" :key="getPathKey(item.path)">
+        <div v-if="item.level === 0" class="outline-item-wrapper outline-item-wrapper-level-0" :data-index="item.path[0]">
+          <div
+            class="outline-item"
+            :class="[
+              { clickable: item.hasChildren },
+              {
+                'is-dragging':
+                  isDragging && item.path[0] === dragIndex,
+              },
+            ]"
+            :ref="(el) => (itemRefs[index] = el)"
+            :style="getItemStyle(item, index)"
+            @click="item.hasChildren ? toggleExpand(item.path) : null"
+          >
+            <div class="item-left">
+              <div class="outline-number">{{ getDisplayNumber(item.path) }}</div>
+              <button
+                v-if="item.hasChildren"
+                class="expand-btn"
+                :class="{ expanded: !item.isCollapsed }"
+              >
+                <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
+                <Icon v-else name="Minus" :size="16" />
+              </button>
 
-            <div
-              v-if="
-                editingPath &&
-                JSON.stringify(editingPath) === JSON.stringify(item.path)
-              "
-              class="edit-wrapper"
-              @click.stop
-            >
-              <input
-                v-model="editingValue"
-                @blur="saveEdit"
-                @keyup.enter="saveEdit"
-                @keyup.esc="cancelEdit"
-                class="edit-input"
-                :ref="(el) => (editInputRefs[getPathKey(item.path)] = el)"
-                autofocus
-              />
+              <div
+                v-if="
+                  editingPath &&
+                  JSON.stringify(editingPath) === JSON.stringify(item.path)
+                "
+                class="edit-wrapper"
+                @click.stop
+              >
+                <input
+                  v-model="editingValue"
+                  @blur="saveEdit"
+                  @keyup.enter="saveEdit"
+                  @keyup.esc="cancelEdit"
+                  class="edit-input"
+                  :ref="(el) => (editInputRefs[getPathKey(item.path)] = el)"
+                  autofocus
+                />
+              </div>
+
+              <div v-else class="title-wrapper">
+                <span class="section-title">{{ cleanTitle(item.title) }}</span>
+              </div>
             </div>
 
-            <div v-else class="title-wrapper">
-              <span class="section-title">{{ cleanTitle(item.title) }}</span>
+            <div class="item-right" @click.stop>
+              <div
+                class="drag-handle"
+                @mousedown="handleDragStart(item.path, $event)"
+              >
+                <Icon name="GripVertical" :size="18" />
+              </div>
+              <div
+                class="action-btn edit-btn"
+                @click="startEdit(item.path)"
+                title="编辑章节"
+              >
+                <Icon name="Edit3" :size="18" />
+              </div>
+              <div
+                class="action-btn delete-btn"
+                @click="deleteSectionByPath(item.path, $event)"
+                title="删除章节"
+              >
+                <Icon name="Trash2" :size="18" />
+              </div>
             </div>
           </div>
 
-          <div class="item-right" @click.stop>
-            <div
-              v-if="item.level === 0"
-              class="drag-handle"
-              :class="{ 'drag-handle-active': draggedIndex === item.path[0] }"
-            >
-              <Icon name="GripVertical" :size="18" />
+          <button
+            class="generate-sub-btn"
+            @click.stop="addSubSectionByPath(item.path, $event)"
+            :disabled="generatingPath === getPathKey(item.path)"
+          >
+            <Icon
+              v-if="generatingPath === getPathKey(item.path)"
+              name="Loader2"
+              :size="16"
+              class="spinner"
+            />
+            <Icon v-else name="Sparkles" :size="16" />
+            <span>生成小节</span>
+          </button>
+        </div>
+
+        <div
+          v-else-if="item.level > 0"
+          class="outline-item-wrapper"
+          :class="`outline-item-wrapper-level-${item.level}`"
+        >
+          <div
+            class="outline-item"
+            :class="{ clickable: item.hasChildren }"
+            @click="item.hasChildren ? toggleExpand(item.path) : null"
+          >
+            <div class="item-left">
+              <div class="outline-number">{{ getDisplayNumber(item.path) }}</div>
+              <button
+                v-if="item.hasChildren"
+                class="expand-btn"
+                :class="{ expanded: !item.isCollapsed }"
+              >
+                <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
+                <Icon v-else name="Minus" :size="16" />
+              </button>
+
+              <div
+                v-if="
+                  editingPath &&
+                  JSON.stringify(editingPath) === JSON.stringify(item.path)
+                "
+                class="edit-wrapper"
+                @click.stop
+              >
+                <input
+                  v-model="editingValue"
+                  @blur="saveEdit"
+                  @keyup.enter="saveEdit"
+                  @keyup.esc="cancelEdit"
+                  class="edit-input"
+                  :ref="(el) => (editInputRefs[getPathKey(item.path)] = el)"
+                  autofocus
+                />
+              </div>
+
+              <div v-else class="title-wrapper">
+                <span class="section-title">{{ cleanTitle(item.title) }}</span>
+              </div>
             </div>
-            <div
-              class="action-btn edit-btn"
-              @click="startEdit(item.path)"
-              title="编辑章节"
-            >
-              <Icon name="Edit3" :size="18" />
-            </div>
-            <div
-              class="action-btn delete-btn"
-              @click="deleteSectionByPath(item.path, $event)"
-              title="删除章节"
-            >
-              <Icon name="Trash2" :size="18" />
+
+            <div class="item-right" @click.stop>
+              <div
+                class="action-btn edit-btn"
+                @click="startEdit(item.path)"
+                title="编辑章节"
+              >
+                <Icon name="Edit3" :size="18" />
+              </div>
+              <div
+                class="action-btn delete-btn"
+                @click="deleteSectionByPath(item.path, $event)"
+                title="删除章节"
+              >
+                <Icon name="Trash2" :size="18" />
+              </div>
             </div>
           </div>
         </div>
-
-        <button
-          v-if="item.level === 0"
-          class="generate-sub-btn"
-          @click.stop="addSubSectionByPath(item.path, $event)"
-          :disabled="generatingPath === getPathKey(item.path)"
-        >
-          <Icon
-            v-if="generatingPath === getPathKey(item.path)"
-            name="Loader2"
-            :size="16"
-            class="spinner"
-          />
-          <Icon v-else name="Sparkles" :size="16" />
-          <span>生成小节</span>
-        </button>
-      </div>
+      </template>
     </div>
 
     <button class="add-section-btn" @click="addSection">
       <Icon name="Plus" :size="18" />
-      <span>添加章节</span>
+      <span>添加自定义章节</span>
     </button>
   </div>
 </template>
@@ -627,86 +679,15 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 10px;
   margin-bottom: 16px;
+  position: relative;
 }
 
 .outline-item-wrapper {
   display: flex;
   align-items: center;
   gap: 10px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-}
-
-.outline-item-wrapper.dragging {
-  opacity: 0.4;
-  transform: scale(0.98);
-}
-
-.outline-item-wrapper.drag-over {
-  transform: translateY(-2px);
-}
-
-.outline-item-wrapper.drag-over::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: -8px;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
-  border-radius: 2px;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.outline-item-wrapper.drag-over .outline-item {
-  border-color: var(--primary);
-  background: linear-gradient(
-    135deg,
-    rgba(99, 91, 255, 0.05),
-    rgba(34, 211, 238, 0.05)
-  );
-}
-
-.outline-item-wrapper[draggable="true"] {
-  cursor: grab;
-}
-
-.outline-item-wrapper[draggable="true"]:active {
-  cursor: grabbing;
-}
-
-.drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  color: var(--text-muted);
-  cursor: grab;
-  transition: all 0.2s ease;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.drag-handle:hover {
-  color: var(--text-primary);
-  background: var(--bg-input);
-}
-
-.drag-handle:active,
-.drag-handle-active {
-  color: var(--primary);
-  cursor: grabbing;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .outline-item-wrapper-level-1 {
@@ -715,23 +696,6 @@ onUnmounted(() => {
 
 .outline-item-wrapper-level-2 {
   margin-left: 48px;
-}
-
-/* 真实移动设备的样式（和屏幕宽度无关） */
-.outline-editor.is-mobile .item-right {
-  opacity: 1;
-}
-
-.outline-editor.is-mobile .action-btn:active,
-.outline-editor.is-mobile .action-btn:focus {
-  background: var(--bg-input);
-  color: var(--text-primary);
-}
-
-.outline-editor.is-mobile .delete-btn:active,
-.outline-editor.is-mobile .delete-btn:focus {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger);
 }
 
 .outline-item {
@@ -743,7 +707,7 @@ onUnmounted(() => {
   gap: 10px;
   background-color: var(--bg-sidebar);
   border: 2px solid var(--border);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 56px;
   box-sizing: border-box;
   flex: 1;
@@ -760,6 +724,11 @@ onUnmounted(() => {
   border-color: var(--text-muted);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   transform: translateY(-1px);
+}
+
+.outline-item.is-dragging {
+  pointer-events: none;
+  transition: box-shadow 0.15s ease;
 }
 
 .item-left {
@@ -874,26 +843,9 @@ onUnmounted(() => {
   box-shadow: 0 2px 8px rgba(99, 91, 255, 0.15);
 }
 
-.generate-article-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
-  border: none;
-  background-color: var(--primary);
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
-}
-
-.generate-article-btn:hover {
-  background-color: var(--primary-hover);
-  transform: translateY(-1px);
+.generate-sub-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .item-right {
@@ -932,6 +884,29 @@ onUnmounted(() => {
   color: var(--danger);
 }
 
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  cursor: grab;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.drag-handle:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+.drag-handle:active {
+  color: var(--primary);
+  cursor: grabbing;
+}
+
 .add-section-btn {
   display: flex;
   align-items: center;
@@ -968,9 +943,31 @@ onUnmounted(() => {
   }
 }
 
-.generate-sub-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* 真实移动设备的样式（和屏幕宽度无关） */
+.outline-editor.is-mobile .item-right {
+  opacity: 1;
+}
+
+.outline-editor.is-mobile .action-btn:active,
+.outline-editor.is-mobile .action-btn:focus {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.outline-editor.is-mobile .delete-btn:active,
+.outline-editor.is-mobile .delete-btn:focus {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
 }
 
 /* ===== 响应式设计 - 移动端适配 ===== */
@@ -1071,16 +1068,6 @@ onUnmounted(() => {
     padding: 8px 12px;
     font-size: 12px;
     gap: 4px;
-  }
-
-  .drag-handle {
-    width: 24px;
-    height: 24px;
-  }
-
-  .drag-handle svg {
-    width: 16px;
-    height: 16px;
   }
 
   .outline-item-wrapper-level-0 {

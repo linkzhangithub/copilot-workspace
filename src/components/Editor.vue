@@ -58,6 +58,9 @@ const totalComment = ref("");
 const visibleTotalScore = ref(false);
 const progressBarWidth = ref(0);
 const currentStep = ref(-1); // -1=未开始, 0-4=当前步骤
+const isQualityCheckCancelled = ref(false); // 标记是否被中断
+const qualityCheckCompleted = ref(false); // 标记是否完成
+const showCancelMessage = ref(false); // 显示中断提示
 
 // 修改建议相关状态
 const visibleSuggestions = ref(false);
@@ -505,10 +508,12 @@ const showPreviousQualityCheck = () => {
 
 // 智能文章质检
 const startQualityCheck = async () => {
-  // 生成完整markdown内容
-  const fullMarkdown = generateFullMarkdown();
+  // 重置状态
+  isQualityCheckCancelled.value = false;
+  qualityCheckCompleted.value = false;
 
-  // 检查是否和上次内容一样，如果是且有结果且有suggestions，直接显示
+  // 如果内容未变且有结果，直接显示
+  const fullMarkdown = generateFullMarkdown();
   if (
     fullMarkdown === lastQualityCheck.value.articleContent &&
     lastQualityCheck.value.results &&
@@ -588,14 +593,23 @@ const startQualityCheck = async () => {
 
     const result = await response.json();
 
+    // 检查是否被中断
+    if (isQualityCheckCancelled.value) return;
+
     // 等一小段时间让用户看到加载状态
     await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // 检查是否被中断
+    if (isQualityCheckCancelled.value) return;
 
     // 先淡出加载状态
     showLoadingState.value = false;
 
     // 等待淡出动画完成（0.4s）
     await new Promise((resolve) => setTimeout(resolve, 400));
+
+    // 检查是否被中断
+    if (isQualityCheckCancelled.value) return;
 
     // 显示第一项
     visibleItems.value[0] = true;
@@ -630,6 +644,9 @@ const startQualityCheck = async () => {
     suggestions.value = autoSuggestions;
 
     for (let i = 0; i < dimensions.length; i++) {
+      // 检查是否被中断
+      if (isQualityCheckCancelled.value) return;
+
       const dim = dimensions[i];
       const text = evaluations[dim.key] || "评价加载失败";
       const scoreKey = `${dim.key}Score`;
@@ -642,6 +659,8 @@ const startQualityCheck = async () => {
       // 如果不是第一项，等200ms显示下一项
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, 200));
+        // 检查是否被中断
+        if (isQualityCheckCancelled.value) return;
         visibleItems.value[i] = true;
         // 显示后立即滚动到底部
         await nextTick();
@@ -650,6 +669,8 @@ const startQualityCheck = async () => {
 
       // 流式输出该条内容
       for (let j = 0; j < text.length; j++) {
+        // 检查是否被中断
+        if (isQualityCheckCancelled.value) return;
         qualityResults.value[dim.key] += text[j];
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
@@ -657,6 +678,7 @@ const startQualityCheck = async () => {
 
     // 全部完成
     currentStep.value = 5;
+    qualityCheckCompleted.value = true;
 
     // 直接在前端计算总分，不依赖后端！！
     totalScore.value =
@@ -702,6 +724,7 @@ const startQualityCheck = async () => {
     // 进度条动画
     const targetWidth = totalScore.value;
     for (let i = 0; i <= targetWidth; i += 2) {
+      if (isQualityCheckCancelled.value) return;
       progressBarWidth.value = i;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
@@ -716,6 +739,7 @@ const startQualityCheck = async () => {
 
     // 瀑布式显示每条建议
     for (let i = 0; i < suggestions.value.length; i++) {
+      if (isQualityCheckCancelled.value) return;
       await new Promise((resolve) => setTimeout(resolve, 200));
       visibleSuggestionItems.value[i] = true;
       // 每次显示后滚动到底部
@@ -723,7 +747,9 @@ const startQualityCheck = async () => {
       scrollToBottom();
     }
   } catch (error) {
-    console.error("质检失败:", error);
+    if (!isQualityCheckCancelled.value) {
+      console.error("质检失败:", error);
+    }
   } finally {
     qualityCheckLoading.value = false;
   }
@@ -740,6 +766,17 @@ const scrollToBottom = () => {
 
 // 关闭质检弹窗
 const closeQualityCheck = () => {
+  // 判断是否还在加载或生成过程中
+  if (!qualityCheckCompleted.value && qualityCheckLoading.value) {
+    isQualityCheckCancelled.value = true;
+    // 显示中断提示
+    showCancelMessage.value = true;
+    // 2.5秒后自动消失
+    setTimeout(() => {
+      showCancelMessage.value = false;
+    }, 2500);
+  }
+
   showQualityCheck.value = false;
   showLoadingState.value = true;
   visibleItems.value = [false, false, false, false, false];
@@ -979,6 +1016,14 @@ watch(
 <template>
   <div class="editor">
     <div class="editor-content">
+      <!-- 中断提示消息 -->
+      <Transition name="message-fade">
+        <div v-if="showCancelMessage" class="cancel-message">
+          <Icon name="X" :size="16" />
+          <span>已中断质检</span>
+        </div>
+      </Transition>
+
       <!-- 错误提示 -->
       <div v-if="error" class="error-message">
         <Icon name="AlertCircle" :size="18" />
@@ -1350,6 +1395,37 @@ watch(
   margin-bottom: 32px;
   font-size: 14px;
   font-weight: 500;
+}
+
+/* 中断提示消息 */
+.cancel-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
+  padding: 14px 22px;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 消息淡入淡出动画 */
+.message-fade-enter-active,
+.message-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.message-fade-enter-from,
+.message-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.95);
 }
 
 /* 项目主题区 */
