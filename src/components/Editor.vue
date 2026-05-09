@@ -1479,6 +1479,7 @@ watch(
 .generate-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 12px 20px;
   border: none;
@@ -1520,6 +1521,7 @@ watch(
 .quality-check-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 12px 20px;
   border: 2px solid var(--primary);
@@ -1964,7 +1966,8 @@ watch(
     height: 34px;
   }
 
-  .generate-btn {
+  .generate-btn,
+  .quality-check-btn {
     width: 100%;
     justify-content: center;
     height: 48px;

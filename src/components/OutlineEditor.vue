@@ -21,6 +21,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:outline"]);
 
+const isMobile = ref(false);
+
 const editingPath = ref(null);
 const editingValue = ref("");
 const editInputRefs = ref({});
@@ -420,12 +422,32 @@ const handleTouchEnd = (path, event) => {
   overIndex.value = null;
 };
 
-onMounted(() => document.addEventListener("click", handleGlobalClick));
-onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
+const checkIsMobile = () => {
+  // 检测是否是真实的移动设备
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  const isTouchDevice =
+    "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  const isMobileUserAgent =
+    /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+      userAgent,
+    );
+  isMobile.value = isTouchDevice && isMobileUserAgent;
+};
+
+onMounted(() => {
+  checkIsMobile();
+  document.addEventListener("click", handleGlobalClick);
+  window.addEventListener("resize", checkIsMobile);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleGlobalClick);
+  window.removeEventListener("resize", checkIsMobile);
+});
 </script>
 
 <template>
-  <div class="outline-editor">
+  <div class="outline-editor" :class="{ 'is-mobile': isMobile }">
     <div class="outline-header">
       <div class="header-left">
         <div class="header-icon">
@@ -513,20 +535,20 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
             >
               <Icon name="GripVertical" :size="18" />
             </div>
-            <button
+            <div
               class="action-btn edit-btn"
               @click="startEdit(item.path)"
               title="编辑章节"
             >
-              <Icon name="Edit3" :size="16" />
-            </button>
-            <button
+              <Icon name="Edit3" :size="18" />
+            </div>
+            <div
               class="action-btn delete-btn"
               @click="deleteSectionByPath(item.path, $event)"
               title="删除章节"
             >
-              <Icon name="Trash2" :size="16" />
-            </button>
+              <Icon name="Trash2" :size="18" />
+            </div>
           </div>
         </div>
 
@@ -693,6 +715,23 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
 
 .outline-item-wrapper-level-2 {
   margin-left: 48px;
+}
+
+/* 真实移动设备的样式（和屏幕宽度无关） */
+.outline-editor.is-mobile .item-right {
+  opacity: 1;
+}
+
+.outline-editor.is-mobile .action-btn:active,
+.outline-editor.is-mobile .action-btn:focus {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.outline-editor.is-mobile .delete-btn:active,
+.outline-editor.is-mobile .delete-btn:focus {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
 }
 
 .outline-item {
@@ -874,23 +913,22 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background-color: transparent;
+  width: 28px;
+  height: 28px;
   color: var(--text-muted);
   cursor: pointer;
+  transition: all 0.2s ease;
   border-radius: 6px;
-  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .action-btn:hover {
-  background-color: var(--bg-input);
   color: var(--text-primary);
+  background: var(--bg-input);
 }
 
 .delete-btn:hover {
-  background-color: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }
 
@@ -1007,7 +1045,6 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
 
   .item-right {
     gap: 4px;
-    opacity: 1;
   }
 
   .drag-handle {
@@ -1021,13 +1058,13 @@ onUnmounted(() => document.removeEventListener("click", handleGlobalClick));
   }
 
   .action-btn {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
   }
 
   .action-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
   }
 
   .generate-sub-btn {
