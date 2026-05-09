@@ -137,7 +137,7 @@ class AIService {
       }
       currentSection = outline[sectionIndex];
     }
-    
+
     // 构建完整的上下文信息
     const {
       articleTopic = "",
@@ -146,7 +146,7 @@ class AIService {
       taskType = "first_generate", // first_generate / polish / expand / shorten
       isFirstContent = false, // 是否是第一个内容（第1章第1节）
       positionDescription = "", // 位置描述，如"第1章第2小节"
-      isSubsection = false // 是否是子小节
+      isSubsection = false, // 是否是子小节
     } = contextInfo;
 
     // 构建已完成章节信息
@@ -155,7 +155,7 @@ class AIService {
       completedContent = completedSections
         .map(
           (sec, i) =>
-            `第${i + 1}章【${sec.title}】：${sec.contentSummary || "内容摘要未生成"}`
+            `第${i + 1}章【${sec.title}】：${sec.contentSummary || "内容摘要未生成"}`,
         )
         .join("\n\n");
     }
@@ -212,12 +212,12 @@ ${forbiddenPoints || "无"}
 正在撰写第${sectionIndex + 1}章
 章节标题：${currentSection.title}
 子主题：${
-  Array.isArray(currentSection.children)
-    ? currentSection.children
-        .map(child => typeof child === "object" ? child.title : child)
-        .join("、")
-    : "无"
-}
+        Array.isArray(currentSection.children)
+          ? currentSection.children
+              .map((child) => (typeof child === "object" ? child.title : child))
+              .join("、")
+          : "无"
+      }
 
 📌 本章专属任务：
 - 专注于"${currentSection.title}"这个主题
@@ -415,18 +415,26 @@ ${contextInfo.originalContent || ""}
       {
         role: "system",
         content:
-          "你是一位资深的文章质量评估专家。你必须返回严格的JSON格式，不能有任何其他文字。",
+          "你是一位专业的写作导师，擅长给出具体、可操作的改进建议。你必须返回严格的JSON格式，不能有任何其他文字。",
       },
       {
         role: "user",
-        content: `${articleContent}
+        content: `【文章信息】
+主题：${topic}
+内容：${articleContent}
 
-请从以下5个维度评价这篇文章，并给出3条具体的改进建议：
+【任务】请从以下5个维度评价这篇文章，并给出3条最优先的改进建议：
 
 【评价要求】
 - 每个维度用50字以内概括评价
 - 每个维度给出0-20分的分数（满分20分）
-- 给出3条具体的、个性化的改进建议（每条建议不超过50字）
+- 生成3条优先改进建议，优先针对得分最低的维度
+
+【建议要求】
+1. 每条建议必须包含：问题描述+改进方向+可选示例
+2. 建议按重要性从高到低排序
+3. 每条建议控制在50-80字
+4. 为每条建议分类：结构/内容/逻辑/表达/质量
 
 【输出格式】
 必须严格按照以下JSON格式输出，不要添加任何其他文字：
@@ -442,9 +450,27 @@ ${contextInfo.originalContent || ""}
   "qualityScore": 15,
   "clarityScore": 17,
   "suggestions": [
-    "第一条具体建议",
-    "第二条具体建议",
-    "第三条具体建议"
+    {
+      "category": "结构",
+      "priority": 1,
+      "issue": "具体问题描述",
+      "suggestion": "改进建议",
+      "example": "修改示例（可选）"
+    },
+    {
+      "category": "内容",
+      "priority": 2,
+      "issue": "具体问题描述",
+      "suggestion": "改进建议",
+      "example": "修改示例（可选）"
+    },
+    {
+      "category": "逻辑",
+      "priority": 3,
+      "issue": "具体问题描述",
+      "suggestion": "改进建议",
+      "example": "修改示例（可选）"
+    }
   ]
 }`,
       },
@@ -468,7 +494,7 @@ ${contextInfo.originalContent || ""}
         .replace(/```\s*/g, "")
         .replace(/`{1,2}/g, "")
         .trim();
-      
+
       // 提取JSON部分
       const jsonStart = result.indexOf("{");
       const jsonEnd = result.lastIndexOf("}");
@@ -489,26 +515,67 @@ ${contextInfo.originalContent || ""}
         qualityScore: 0,
         clarityScore: 0,
         totalScore: 0,
-        comment: ""
+        comment: "",
+        suggestions: [],
       };
 
       // 尝试解析JSON
       try {
         const parsed = JSON.parse(result);
-        
+
         evaluations.structure = parsed.structure || evaluations.structure;
         evaluations.content = parsed.content || evaluations.content;
         evaluations.logic = parsed.logic || evaluations.logic;
         evaluations.quality = parsed.quality || evaluations.quality;
         evaluations.clarity = parsed.clarity || evaluations.clarity;
-        
-        evaluations.structureScore = Math.min(20, Math.max(0, parsed.structureScore || 0));
-        evaluations.contentScore = Math.min(20, Math.max(0, parsed.contentScore || 0));
-        evaluations.logicScore = Math.min(20, Math.max(0, parsed.logicScore || 0));
-        evaluations.qualityScore = Math.min(20, Math.max(0, parsed.qualityScore || 0));
-        evaluations.clarityScore = Math.min(20, Math.max(0, parsed.clarityScore || 0));
-        
 
+        evaluations.structureScore = Math.min(
+          20,
+          Math.max(0, parsed.structureScore || 0),
+        );
+        evaluations.contentScore = Math.min(
+          20,
+          Math.max(0, parsed.contentScore || 0),
+        );
+        evaluations.logicScore = Math.min(
+          20,
+          Math.max(0, parsed.logicScore || 0),
+        );
+        evaluations.qualityScore = Math.min(
+          20,
+          Math.max(0, parsed.qualityScore || 0),
+        );
+        evaluations.clarityScore = Math.min(
+          20,
+          Math.max(0, parsed.clarityScore || 0),
+        );
+
+        // 处理建议，保持兼容性
+        if (parsed.suggestions) {
+          if (Array.isArray(parsed.suggestions)) {
+            evaluations.suggestions = parsed.suggestions.map((s, index) => {
+              if (typeof s === "string") {
+                // 旧格式：纯字符串
+                return {
+                  category: "质量",
+                  priority: index + 1,
+                  issue: "",
+                  suggestion: s,
+                  example: "",
+                };
+              } else {
+                // 新格式：结构化对象
+                return {
+                  category: s.category || "质量",
+                  priority: s.priority || index + 1,
+                  issue: s.issue || "",
+                  suggestion: s.suggestion || s.text || "",
+                  example: s.example || "",
+                };
+              }
+            });
+          }
+        }
       } catch (e) {
         console.warn("解析JSON失败，使用默认值:", e);
         console.log("解析失败的原始内容:", result);
@@ -516,7 +583,7 @@ ${contextInfo.originalContent || ""}
       }
 
       // 直接计算5个维度得分之和（每个维度20分，共100分）
-      evaluations.totalScore = 
+      evaluations.totalScore =
         evaluations.structureScore +
         evaluations.contentScore +
         evaluations.logicScore +
@@ -636,9 +703,8 @@ ${contextInfo.originalContent || ""}
 
   // 生成子章节
   async generateSubsections(topic, existingTitles = []) {
-    const existingTitlesStr = existingTitles.length > 0 
-      ? existingTitles.join("、") 
-      : "无";
+    const existingTitlesStr =
+      existingTitles.length > 0 ? existingTitles.join("、") : "无";
 
     const messages = [
       {
@@ -697,7 +763,11 @@ ${contextInfo.originalContent || ""}
       items = items.filter((item) => {
         const hasPunctuation = /[、。：！？!?]/.test(item);
         const isTooLong = item.length > 30;
-        const isDescription = item.includes("需要") || item.includes("我") || item.includes("请") || item.includes("生成");
+        const isDescription =
+          item.includes("需要") ||
+          item.includes("我") ||
+          item.includes("请") ||
+          item.includes("生成");
         return !hasPunctuation && !isTooLong && !isDescription;
       });
 

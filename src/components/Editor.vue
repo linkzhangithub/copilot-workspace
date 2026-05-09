@@ -446,7 +446,54 @@ const showPreviousQualityCheck = () => {
     lastQualityCheck.value.suggestions &&
     Array.isArray(lastQualityCheck.value.suggestions)
   ) {
-    suggestions.value = lastQualityCheck.value.suggestions.slice(0, 3);
+    // 定义分类图标映射（与之前保持一致）
+    const categoryIcons = {
+      结构: "📋",
+      内容: "📝",
+      逻辑: "🔗",
+      表达: "✍️",
+      质量: "⭐",
+    };
+    const fallbackIcons = ["📋", "💡", "🔗"];
+
+    suggestions.value = lastQualityCheck.value.suggestions
+      .slice(0, 3)
+      .map((s, index) => {
+        // 处理新旧格式兼容
+        if (typeof s === "string") {
+          return {
+            icon: fallbackIcons[index % fallbackIcons.length],
+            text: s,
+            category: "质量",
+            priority: index + 1,
+            issue: "",
+            example: "",
+          };
+        } else if (s.text && !s.category) {
+          // 中间格式
+          return {
+            icon: s.icon || fallbackIcons[index % fallbackIcons.length],
+            text: s.text,
+            category: "质量",
+            priority: index + 1,
+            issue: "",
+            example: "",
+          };
+        } else {
+          // 新格式
+          return {
+            icon:
+              s.icon ||
+              categoryIcons[s.category] ||
+              fallbackIcons[index % fallbackIcons.length],
+            text: s.suggestion || s.text || "",
+            category: s.category || "质量",
+            priority: s.priority || index + 1,
+            issue: s.issue || "",
+            example: s.example || "",
+          };
+        }
+      });
   } else {
     // 如果没有保存suggestions，根据分数重新生成
     const autoSuggestions = [];
@@ -456,42 +503,87 @@ const showPreviousQualityCheck = () => {
       autoSuggestions.push({
         icon: "📋",
         text: "补充缺失的章节内容，完善文章的整体结构框架",
+        category: "结构",
+        priority: autoSuggestions.length + 1,
+        issue: "",
+        example: "",
       });
     }
     if (scores && scores.content <= 12) {
       autoSuggestions.push({
         icon: "💡",
         text: "增加具体的案例和数据，提升章节内容的充实度",
+        category: "内容",
+        priority: autoSuggestions.length + 1,
+        issue: "",
+        example: "",
       });
     }
     if (scores && scores.logic <= 12) {
       autoSuggestions.push({
         icon: "🔗",
         text: "优化段落间的过渡衔接，增强文章的逻辑连贯性",
+        category: "逻辑",
+        priority: autoSuggestions.length + 1,
+        issue: "",
+        example: "",
       });
     }
     if (scores && scores.quality <= 12) {
       autoSuggestions.push({
         icon: "📝",
         text: "增加深度分析和专业内容，提升文章的内容质量",
+        category: "质量",
+        priority: autoSuggestions.length + 1,
+        issue: "",
+        example: "",
       });
     }
     if (scores && scores.clarity <= 12) {
       autoSuggestions.push({
         icon: "🎯",
         text: "简化复杂句式，让表达更简洁明了",
+        category: "表达",
+        priority: autoSuggestions.length + 1,
+        issue: "",
+        example: "",
       });
     }
 
     const defaultSuggestions = [
-      { icon: "💡", text: "增加具体的数据或案例支持，提升说服力" },
-      { icon: "📝", text: "优化段落之间的过渡衔接，增强逻辑性" },
-      { icon: "🎯", text: "简化复杂句式，让表达更简洁明了" },
+      {
+        icon: "💡",
+        text: "增加具体的数据或案例支持，提升说服力",
+        category: "内容",
+        priority: autoSuggestions.length + 1,
+        issue: "",
+        example: "",
+      },
+      {
+        icon: "📝",
+        text: "优化段落之间的过渡衔接，增强逻辑性",
+        category: "逻辑",
+        priority: autoSuggestions.length + 2,
+        issue: "",
+        example: "",
+      },
+      {
+        icon: "🎯",
+        text: "简化复杂句式，让表达更简洁明了",
+        category: "表达",
+        priority: autoSuggestions.length + 3,
+        issue: "",
+        example: "",
+      },
     ];
 
     while (autoSuggestions.length < 3) {
       const randomIndex = Math.floor(Math.random() * defaultSuggestions.length);
-      autoSuggestions.push(defaultSuggestions[randomIndex]);
+      const suggestion = defaultSuggestions[randomIndex];
+      autoSuggestions.push({
+        ...suggestion,
+        priority: autoSuggestions.length + 1,
+      });
     }
     suggestions.value = autoSuggestions.slice(0, 3);
   }
@@ -618,25 +710,72 @@ const startQualityCheck = async () => {
     // 开始依次处理每条评价
     const evaluations = result.data;
 
-    // 使用AI生成的个性化建议
-    const suggestionIcons = ["📋", "💡", "🔗", "📝", "🎯", "✨"];
+    // 定义分类图标映射
+    const categoryIcons = {
+      结构: "📋",
+      内容: "📝",
+      逻辑: "🔗",
+      表达: "✍️",
+      质量: "⭐",
+    };
+    const fallbackIcons = ["📋", "💡", "🔗"];
+
     let autoSuggestions = [];
 
     if (evaluations.suggestions && Array.isArray(evaluations.suggestions)) {
-      autoSuggestions = evaluations.suggestions
-        .slice(0, 3)
-        .map((text, index) => ({
-          icon: suggestionIcons[index % suggestionIcons.length],
-          text: text,
-        }));
+      autoSuggestions = evaluations.suggestions.slice(0, 3).map((s, index) => {
+        // 处理新格式和旧格式的兼容
+        if (typeof s === "string") {
+          return {
+            icon: fallbackIcons[index % fallbackIcons.length],
+            text: s,
+            category: "质量",
+            priority: index + 1,
+            issue: "",
+            example: "",
+          };
+        } else {
+          return {
+            icon:
+              categoryIcons[s.category] ||
+              fallbackIcons[index % fallbackIcons.length],
+            text: s.suggestion || s.text || "",
+            category: s.category || "质量",
+            priority: s.priority || index + 1,
+            issue: s.issue || "",
+            example: s.example || "",
+          };
+        }
+      });
     }
 
     // 如果AI没有返回建议，使用备用建议
     if (autoSuggestions.length === 0) {
       const defaultSuggestions = [
-        { icon: "📋", text: "优化章节间的层次关系，让大纲结构更清晰" },
-        { icon: "💡", text: "增加具体的案例和数据，提升内容的充实度" },
-        { icon: "🔗", text: "加强各部分之间的逻辑关联，让论证更严密" },
+        {
+          icon: "📋",
+          text: "优化章节间的层次关系，让大纲结构更清晰",
+          category: "结构",
+          priority: 1,
+          issue: "",
+          example: "",
+        },
+        {
+          icon: "💡",
+          text: "增加具体的案例和数据，提升内容的充实度",
+          category: "内容",
+          priority: 2,
+          issue: "",
+          example: "",
+        },
+        {
+          icon: "🔗",
+          text: "加强各部分之间的逻辑关联，让论证更严密",
+          category: "逻辑",
+          priority: 3,
+          issue: "",
+          example: "",
+        },
       ];
       autoSuggestions = defaultSuggestions;
     }
@@ -1351,12 +1490,33 @@ watch(
                         v-show="visibleSuggestionItems[index]"
                         class="suggestion-item"
                       >
-                        <span class="suggestion-icon">{{
-                          suggestion.icon
-                        }}</span>
-                        <span class="suggestion-text">{{
-                          suggestion.text
-                        }}</span>
+                        <div class="suggestion-left">
+                          <span class="suggestion-icon">{{
+                            suggestion.icon
+                          }}</span>
+                        </div>
+                        <div class="suggestion-content">
+                          <div class="suggestion-header">
+                            <span class="suggestion-category">{{
+                              suggestion.category
+                            }}</span>
+                            <span class="suggestion-priority"
+                              >优先级 {{ suggestion.priority }}</span
+                            >
+                          </div>
+                          <div v-if="suggestion.issue" class="suggestion-issue">
+                            问题：{{ suggestion.issue }}
+                          </div>
+                          <div class="suggestion-text">
+                            {{ suggestion.text }}
+                          </div>
+                          <div
+                            v-if="suggestion.example"
+                            class="suggestion-example"
+                          >
+                            示例：{{ suggestion.example }}
+                          </div>
+                        </div>
                       </div>
                     </TransitionGroup>
                   </div>
@@ -1970,24 +2130,73 @@ watch(
 
 .suggestion-item {
   display: flex;
-  align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 16px;
   background-color: var(--bg-tertiary);
   border-radius: 12px;
   border: 1px solid var(--border);
 }
 
-.suggestion-icon {
-  font-size: 20px;
+.suggestion-left {
+  display: flex;
+  align-items: flex-start;
   flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.suggestion-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.suggestion-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.suggestion-category {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background-color: var(--bg-input);
+  color: var(--primary);
+}
+
+.suggestion-priority {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.suggestion-issue {
+  font-size: 13px;
+  color: var(--danger);
+  font-weight: 500;
 }
 
 .suggestion-text {
   font-size: 14px;
   color: var(--text-primary);
   line-height: 1.5;
-  flex: 1;
+}
+
+.suggestion-example {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background-color: var(--bg-input);
+  border-radius: 8px;
+  font-style: italic;
+  border-left: 3px solid var(--primary);
 }
 
 /* 建议项淡入动画 */
