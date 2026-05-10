@@ -22,6 +22,7 @@ export function useTheme() {
       root.classList.add('light')
       // 亮色主题变量
       root.style.setProperty('--bg-page', '#F7F7F8')
+      root.style.setProperty('--bg-primary', '#FFFFFF')
       root.style.setProperty('--bg-sidebar', '#FFFFFF')
       root.style.setProperty('--bg-input', '#F1F5F9')
       root.style.setProperty('--bg-hover', '#E2E8F0')
@@ -36,6 +37,7 @@ export function useTheme() {
       root.classList.add('dark')
       // 暗色主题变量（默认）
       root.style.setProperty('--bg-page', '#0B1120')
+      root.style.setProperty('--bg-primary', '#111827')
       root.style.setProperty('--bg-sidebar', '#0F172A')
       root.style.setProperty('--bg-input', '#1E293B')
       root.style.setProperty('--bg-hover', '#2D3748')
