@@ -536,10 +536,6 @@ ${articleContent}
       const message = response.data.choices[0]?.message;
       let result = message?.content || message?.reasoning_content || "";
 
-      console.log("=== AI 质检原始返回 ===");
-      console.log("返回内容长度:", result.length);
-      console.log("返回内容:", result);
-
       // 清理返回内容，只保留JSON
       result = result.trim();
       result = result
@@ -548,16 +544,12 @@ ${articleContent}
         .replace(/`{1,2}/g, "")
         .trim();
 
-      console.log("清理后的内容:", result);
-
       // 提取JSON部分
       const jsonStart = result.indexOf("{");
       const jsonEnd = result.lastIndexOf("}");
       if (jsonStart > -1 && jsonEnd > jsonStart) {
         result = result.substring(jsonStart, jsonEnd + 1);
       }
-
-      console.log("提取的JSON:", result);
 
       // 解析各个维度的评价和分数
       const evaluations = {
@@ -635,8 +627,6 @@ ${articleContent}
         }
       } catch (e) {
         console.warn("解析JSON失败，使用默认值:", e);
-        console.log("解析失败的原始内容:", result);
-        console.log("========================================");
       }
 
       // 直接计算5个维度得分之和（每个维度20分，共100分）
@@ -658,11 +648,6 @@ ${articleContent}
         evaluations.comment = "继续努力，提升文章质量！";
       }
 
-      console.log("解析后的评价:", evaluations);
-      
-      // 保存原始返回，便于调试
-      evaluations._rawResponse = result;
-      
       return evaluations;
     } catch (error) {
       console.error("质检失败:", error);

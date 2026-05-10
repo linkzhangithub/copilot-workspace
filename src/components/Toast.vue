@@ -65,7 +65,7 @@ const getIcon = () => {
   align-items: center;
   gap: 12px;
   padding: 14px 20px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
@@ -91,7 +91,6 @@ const getIcon = () => {
 
 .toast-info {
   border-left: 3px solid var(--primary);
-  background: #ffffff;
 }
 
 .toast-info .toast-icon {
@@ -100,7 +99,6 @@ const getIcon = () => {
 
 .toast-success {
   border-left: 3px solid var(--success);
-  background: #ffffff;
 }
 
 .toast-success .toast-icon {
@@ -109,7 +107,6 @@ const getIcon = () => {
 
 .toast-warning {
   border-left: 3px solid var(--warning);
-  background: #ffffff;
 }
 
 .toast-warning .toast-icon {
@@ -118,7 +115,6 @@ const getIcon = () => {
 
 .toast-error {
   border-left: 3px solid var(--danger);
-  background: #ffffff;
 }
 
 .toast-error .toast-icon {
