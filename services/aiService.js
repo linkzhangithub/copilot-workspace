@@ -15,12 +15,49 @@ class AIService {
     const messages = [
       {
         role: "system",
-        content:
-          "你是专业内容策划师，输出纯JSON数组，不要包含markdown代码块标记，不要添加任何解释文字。\n\n【重要要求】\n1. 生成4-8个不重复的主标题\n2. 每个章节要有明确的内容边界，避免章节之间内容重叠\n3. 章节之间要有逻辑递进关系（从基础到深入，从概念到应用）\n4. 每个章节都要有独特的核心价值，不能与其他章节重复\n5. 主标题要简洁，适合作为文章的章节\n6. 每个主标题的children可以为空或者有少量子点",
+        content: `你是专业的内容策划师，擅长设计逻辑严密、结构完整的文章大纲。
+
+【核心任务】
+根据文章主题，设计一份最优的大纲结构，确保内容层次清晰、逻辑递进。
+
+【设计原则】
+1. **章节独立性**：每个章节要有明确的主题边界，不与其他章节内容重叠
+2. **小节具体性**：小节标题要具体、有实际内容，不是章节标题的简单重复
+3. **逻辑递进**：章节之间要有自然的逻辑递进关系（从基础到深入，从概念到应用）
+4. **内容完整**：根据主题需要，合理设置章节数量和小节数量
+5. **结构合理**：如果适合，第一章节可包含引言/概述，最后一章节可包含总结/展望
+
+【避免重复】
+- 章节标题和小节标题不能相同或过于相似
+- 不同章节的小节不能有重复内容
+- 小节标题要体现该章节下的具体要点，而不是章节主题的重复
+
+【输出格式】
+纯JSON数组，不要markdown代码块标记，不要任何解释文字：
+[
+  {
+    "title": "章节标题",
+    "children": ["具体小节1", "具体小节2", "具体小节3"]
+  }
+]
+
+【重要提示】
+- children数组中的元素必须是字符串，不是对象
+- 小节标题要具体、有针对性，避免空泛
+- 确保每个小节都有独特的价值`,
       },
       {
         role: "user",
-        content: `主题：${topic}\n\n请设计一个逻辑严密的大纲，确保：\n1. 每个章节都有独特的定位，不重复\n2. 章节之间有自然的逻辑递进\n3. 前面章节为后面章节做铺垫\n\n输出格式：[{"title":"章节标题","children":["子点1","子点2"]}]，注意只输出JSON数组，不要其他文字。`,
+        content: `文章主题：${topic}
+
+请为这篇文章设计一个最优的大纲结构，要求：
+1. 根据主题需要，合理设置章节数量（建议4-8个章节）
+2. 每个章节下设置合适数量的小节（建议2-5个小节）
+3. 确保章节之间不重复，小节之间不重复
+4. 小节标题要具体，体现该章节下的具体要点
+5. 如果主题适合，包含引言和总结部分
+
+直接输出JSON数组，不要任何其他文字。`,
       },
     ];
 
@@ -29,7 +66,7 @@ class AIService {
         model: this.model,
         messages,
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 4000,
       });
 
       const message = response.data.choices[0]?.message;
@@ -57,40 +94,46 @@ class AIService {
       const parsed = JSON.parse(jsonContent);
 
       if (Array.isArray(parsed)) {
-        const outline = parsed.map((item) => ({
-          title: String(
-            item.title ||
-              item.chapter ||
-              item.name ||
-              item.section ||
-              item.章节 ||
-              "",
-          ),
-          children:
+        const outline = parsed.map((item) => {
+          const children = (
             item.children ||
             item.subpoints ||
             item.sections ||
             item.points ||
             item.items ||
-            item.子点 ||
-            item.子主题 ||
-            [],
-        }));
+            []
+          )
+            .map((child) => {
+              if (typeof child === "string") {
+                return child;
+              } else if (child && typeof child === "object") {
+                return child.title || child.name || "";
+              }
+              return "";
+            })
+            .filter((title) => title.length > 0);
 
-        // 去重
+          return {
+            title: String(
+              item.title || item.chapter || item.name || item.section || "",
+            ),
+            children: children,
+          };
+        });
+
         const seen = new Set();
         const deduplicated = [];
         for (const item of outline) {
           const titleKey = item.title.trim().toLowerCase();
-          if (!seen.has(titleKey)) {
+          if (!seen.has(titleKey) && item.title.trim()) {
             seen.add(titleKey);
             deduplicated.push(item);
           }
         }
 
-        // 限制数量
-        const limited = deduplicated.slice(0, 8);
-        return limited;
+        console.log(`✅ 生成大纲：${deduplicated.length}个章节`);
+
+        return deduplicated;
       }
 
       return [];

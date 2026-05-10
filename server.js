@@ -98,6 +98,8 @@ app.post("/api/ai/generate-content", async (req, res) => {
         .json({ success: false, error: "请提供有效的路径" });
     }
 
+    console.log("正在生成内容，path:", path, "contextInfo:", contextInfo);
+
     // 为了兼容aiService，需要传递sectionIndex（path[0]），同时contextInfo里包含完整path
     const sectionIndex = path[0];
 
@@ -111,7 +113,21 @@ app.post("/api/ai/generate-content", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
+    // 标记响应是否已结束，防止重复调用 res.end()
+    let isEnded = false;
+
+    // 处理客户端断开连接
+    req.on("close", () => {
+      if (!isEnded) {
+        console.log("客户端断开连接，path:", path);
+        isEnded = true;
+        response.data.destroy();
+      }
+    });
+
     response.data.on("data", (chunk) => {
+      if (isEnded) return;
+
       const chunkStr = chunk.toString("utf8");
       const lines = chunkStr.split("\n").filter((line) => line.trim());
 
@@ -120,7 +136,10 @@ app.post("/api/ai/generate-content", async (req, res) => {
           const data = line.slice(6);
           if (data === "[DONE]") {
             res.write("data: [DONE]\n\n");
-            res.end();
+            if (!isEnded) {
+              isEnded = true;
+              res.end();
+            }
           } else {
             try {
               const json = JSON.parse(data);
@@ -137,15 +156,25 @@ app.post("/api/ai/generate-content", async (req, res) => {
     });
 
     response.data.on("end", () => {
-      res.end();
+      console.log("内容生成成功，path:", path);
+      if (!isEnded) {
+        isEnded = true;
+        res.end();
+      }
     });
 
     response.data.on("error", (error) => {
       console.error("流式响应错误:", error);
-      res.end();
+      if (!isEnded) {
+        isEnded = true;
+        res.end();
+      }
     });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error("生成内容失败:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   }
 });
 

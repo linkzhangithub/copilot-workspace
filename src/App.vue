@@ -3,9 +3,18 @@ import { ref, onMounted, computed } from "vue";
 import ProjectList from "./components/ProjectList.vue";
 import ProjectSearch from "./components/ProjectSearch.vue";
 import Editor from "./components/Editor.vue";
+import ToastContainer from "./components/ToastContainer.vue";
 import { useTheme } from "./composables/useTheme";
 
 const { currentTheme, toggleTheme } = useTheme();
+
+const toastRef = ref(null);
+
+const showToast = (message, type = "info", duration = 3000) => {
+  if (toastRef.value) {
+    toastRef.value.show(message, type, duration);
+  }
+};
 
 // 状态
 const projects = ref([]);
@@ -47,7 +56,7 @@ const saveProjects = () => {
 
 const handleProjectClick = (project) => {
   selectedProject.value = project;
-  
+
   // 在移动端时，点击项目后自动关闭侧边栏
   if (window.innerWidth < 768) {
     sidebarOpen.value = false;
@@ -287,6 +296,7 @@ onMounted(() => {
           :key="selectedProject.id"
           :project="selectedProject"
           @update-project="handleUpdateProject"
+          @show-toast="showToast"
         />
         <div v-else class="empty-state">
           <div class="empty-icon">
@@ -317,6 +327,8 @@ onMounted(() => {
         </div>
       </div>
     </main>
+
+    <ToastContainer ref="toastRef" />
   </div>
 </template>
 

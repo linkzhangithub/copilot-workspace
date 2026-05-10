@@ -23,7 +23,12 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["update-project"]);
+const emit = defineEmits(["update-project", "show-toast"]);
+
+// 章节限制常量
+const MAX_CHAPTERS = 8;
+const MAX_SUBSECTIONS_PER_CHAPTER = 10;
+const MAX_TOTAL_SUBSECTIONS = 50;
 
 // 状态
 const outline = ref([]);
@@ -33,10 +38,39 @@ const isEditingTitle = ref(false);
 const editingTitle = ref("");
 const editTitleWrapper = ref(null);
 const titleInput = ref(null);
+const hasGeneratedOutline = ref(false);
+const hasGeneratedAllContent = ref(false);
+const isGeneratingAll = ref(false);
+const generatingSubsectionPath = ref(null);
+
+// 计算是否可以生成大纲
+const canGenerateOutline = computed(() => {
+  return outline.value.length === 0 && !hasGeneratedOutline.value;
+});
+
+const generateOutlineTooltip = computed(() => {
+  if (hasGeneratedOutline.value) {
+    return "大纲已生成，可手动调整结构";
+  }
+  return "";
+});
+
+// 计算当前小节总数
+const totalSubsections = computed(() => {
+  return outline.value.reduce((total, chapter) => {
+    return total + (chapter.children ? chapter.children.length : 0);
+  }, 0);
+});
+
+// 计算是否可以添加更多小节
+const canAddMoreSubsections = computed(() => {
+  return totalSubsections.value < MAX_TOTAL_SUBSECTIONS;
+});
 
 // 质检弹窗相关
 const showQualityCheck = ref(false);
 const qualityCheckLoading = ref(false);
+const qualityCheckError = ref(""); // 质检错误提示
 const showLoadingState = ref(true); // 控制显示加载状态还是评价系统
 const visibleItems = ref([false, false, false, false, false]); // 控制每一项的可见性
 const qualityResults = ref({
@@ -224,6 +258,8 @@ const loadFromStorage = () => {
     if (saved) {
       const data = JSON.parse(saved);
       outline.value = addIdsToOutline(data.outline || []);
+      hasGeneratedOutline.value = data.hasGeneratedOutline || false;
+      hasGeneratedAllContent.value = data.hasGeneratedAllContent || false;
     }
   } catch (e) {
     console.error("加载失败:", e);
@@ -236,6 +272,8 @@ const saveToStorage = () => {
       getStorageKey(),
       JSON.stringify({
         outline: outline.value,
+        hasGeneratedOutline: hasGeneratedOutline.value,
+        hasGeneratedAllContent: hasGeneratedAllContent.value,
       }),
     );
   } catch (e) {
@@ -248,6 +286,8 @@ watch(
   () => props.project.id,
   () => {
     outline.value = [];
+    hasGeneratedOutline.value = false;
+    hasGeneratedAllContent.value = false;
     loadFromStorage();
   },
 );
@@ -255,102 +295,113 @@ watch(
 // 大纲变化时自动保存
 watch(outline, saveToStorage, { deep: true });
 
-// 生成大纲（带逐个显示效果，有内容时追加而不是覆盖）
+// 当大纲被清空时，重置生成状态
+watch(
+  () => outline.value.length,
+  (newLength) => {
+    if (newLength === 0) {
+      hasGeneratedOutline.value = false;
+      hasGeneratedAllContent.value = false;
+    }
+  },
+);
+
+// 生成大纲（一次性生成完整结构，流式显示）
 const generateOutline = async () => {
   error.value = "";
   loading.value = true;
+
+  emit("show-toast", "AI写作助手正在为您构建大纲，请稍候...", "info", 2000);
 
   try {
     const response = await fetch("/api/ai/generate-outline", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: props.project.name }),
+      body: JSON.stringify({
+        topic: props.project.name,
+      }),
     });
 
     const result = await response.json();
 
     let outlineData = [];
     if (result.success && result.data && Array.isArray(result.data)) {
-      // 只保留主标题，清除子标题
-      let rawData = result.data.map((item) => ({
-        title: item.title,
-        children: [],
-      }));
-
-      // 前端再做一层去重和数量限制
-      const seen = new Set();
-      const deduplicated = [];
-      for (const item of rawData) {
-        const titleKey = item.title.trim().toLowerCase();
-        if (!seen.has(titleKey)) {
-          seen.add(titleKey);
-          deduplicated.push(item);
-        }
-      }
-
-      outlineData = deduplicated.slice(0, 6);
+      outlineData = result.data;
     }
 
-    // 确保无论如何都有数据
     if (outlineData.length === 0) {
       error.value = "生成大纲失败，使用默认数据";
       outlineData = [
-        { title: "概述", children: [] },
-        { title: "技术原理", children: [] },
-        { title: "应用场景", children: [] },
-        { title: "未来展望", children: [] },
+        { title: "概述", children: ["背景介绍", "核心概念"] },
+        { title: "技术原理", children: ["基础架构", "关键技术"] },
+        { title: "应用场景", children: ["典型场景", "最佳实践"] },
+        { title: "未来展望", children: ["发展趋势", "总结"] },
       ];
     }
 
     const timestamp = Date.now();
+    outline.value = [];
 
-    // 如果大纲已有内容，直接追加；如果为空，从头生成
-    if (outline.value.length > 0) {
-      // 大纲已有内容，逐个追加新内容
-      const existingTitles = new Set(
-        outline.value.map((item) => item.title.trim().toLowerCase()),
-      );
-      const newItems = outlineData.filter(
-        (item) => !existingTitles.has(item.title.trim().toLowerCase()),
-      );
+    for (let i = 0; i < outlineData.length; i++) {
+      const chapter = outlineData[i];
 
-      // 限制追加数量不超过3个
-      const limitedNewItems = newItems.slice(0, 3);
+      const chapterWithEmptyChildren = {
+        id: `section-${timestamp}-${i}`,
+        title: chapter.title,
+        children: [],
+      };
 
-      for (let i = 0; i < limitedNewItems.length; i++) {
-        const newItem = {
-          ...limitedNewItems[i],
-          id: `section-${timestamp}-${i}`,
-        };
-        outline.value = [...outline.value, newItem];
+      outline.value = [...outline.value, chapterWithEmptyChildren];
 
-        if (i < limitedNewItems.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 200));
-        }
-      }
-    } else {
-      // 大纲为空，逐个显示所有章节
-      for (let i = 0; i < outlineData.length; i++) {
-        const newOutline = outlineData.slice(0, i + 1);
-        outline.value = addIdsToOutline(newOutline, timestamp);
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
-        if (i < outlineData.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 200));
+      if (chapter.children && chapter.children.length > 0) {
+        for (let j = 0; j < chapter.children.length; j++) {
+          const subsectionTitle = chapter.children[j];
+
+          outline.value[i].children.push({
+            id: `subsection-${timestamp}-${i}-${j}`,
+            title: subsectionTitle,
+            children: [],
+          });
+
+          outline.value = [...outline.value];
+
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
     }
+
+    hasGeneratedOutline.value = true;
+
+    emit(
+      "show-toast",
+      "大纲生成完成！当前已是AI推荐的最优结构，如有需要可手动调整",
+      "success",
+      3000,
+    );
   } catch (err) {
     console.error("请求失败:", err);
     error.value = "生成大纲失败，请确保后端服务已启动";
-    // 如果API失败并且大纲为空，才使用fallback数据
+
     if (outline.value.length === 0) {
       const fallbackOutline = [
-        { title: "概述", children: [] },
-        { title: "技术原理", children: [] },
-        { title: "应用场景", children: [] },
-        { title: "未来展望", children: [] },
+        { title: "概述", children: ["背景介绍", "核心概念"] },
+        { title: "技术原理", children: ["基础架构", "关键技术"] },
+        { title: "应用场景", children: ["典型场景", "最佳实践"] },
+        { title: "未来展望", children: ["发展趋势", "总结"] },
       ];
-      outline.value = addIdsToOutline(fallbackOutline, Date.now());
+
+      const timestamp = Date.now();
+      for (let i = 0; i < fallbackOutline.length; i++) {
+        const chapter = fallbackOutline[i];
+        outline.value.push({
+          id: `section-${timestamp}-${i}`,
+          title: chapter.title,
+          children: chapter.children,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
     }
   } finally {
     loading.value = false;
@@ -360,6 +411,86 @@ const generateOutline = async () => {
 // 更新大纲
 const updateOutline = (newOutline) => {
   outline.value = newOutline;
+};
+
+// 一键生成所有内容
+const handleGenerateAllContent = async () => {
+  isGeneratingAll.value = true;
+  hasGeneratedAllContent.value = false;
+
+  emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
+
+  try {
+    for (let i = 0; i < outline.value.length; i++) {
+      const chapter = outline.value[i];
+
+      if (chapter.children && chapter.children.length > 0) {
+        for (let j = 0; j < chapter.children.length; j++) {
+          const subsection = chapter.children[j];
+
+          if (!subsection.content) {
+            generatingSubsectionPath.value = [i, j];
+
+            try {
+              const response = await fetch("/api/ai/generate-content-simple", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  outline: outline.value,
+                  path: [i, j],
+                  contextInfo: {
+                    articleTopic: props.project.name,
+                    completedSections: [],
+                    usedKeyPoints: [],
+                    taskType: "first_generate",
+                    isFirstContent: i === 0 && j === 0,
+                    positionDescription: `第${i + 1}章第${j + 1}小节`,
+                    isSubsection: true,
+                  },
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+
+              const result = await response.json();
+
+              if (result.success && result.data) {
+                // 使用打字机效果逐字显示
+                const content = result.data;
+                for (let k = 0; k < content.length; k++) {
+                  outline.value[i].children[j].content = content.substring(
+                    0,
+                    k + 1,
+                  );
+                  outline.value = [...outline.value];
+                  // 每10个字符暂停一下，模拟流式效果
+                  if (k % 10 === 0) {
+                    await new Promise((resolve) => setTimeout(resolve, 20));
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`生成小节 [${i}][${j}] 失败:`, error);
+              // 继续生成下一个小节
+            }
+
+            generatingSubsectionPath.value = null;
+          }
+        }
+      }
+    }
+
+    hasGeneratedAllContent.value = true;
+    emit("show-toast", "所有小节内容生成完成！", "success", 3000);
+  } catch (err) {
+    console.error("一键生成失败:", err);
+    emit("show-toast", "生成失败，请重试", "error", 3000);
+  } finally {
+    isGeneratingAll.value = false;
+    generatingSubsectionPath.value = null;
+  }
 };
 
 // 生成完整markdown内容（用于质检）- 和导出markdown完全一致
@@ -888,6 +1019,8 @@ const startQualityCheck = async () => {
   } catch (error) {
     if (!isQualityCheckCancelled.value) {
       console.error("质检失败:", error);
+      qualityCheckError.value = "质检暂时不可用，请稍后再试";
+      showLoadingState.value = false;
     }
   } finally {
     qualityCheckLoading.value = false;
@@ -918,6 +1051,7 @@ const closeQualityCheck = () => {
 
   showQualityCheck.value = false;
   showLoadingState.value = true;
+  qualityCheckError.value = "";
   visibleItems.value = [false, false, false, false, false];
   visibleTotalScore.value = false;
   visibleSuggestions.value = false;
@@ -970,6 +1104,7 @@ const cleanDuplicateTitle = (content, title) => {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineTrim = line.trim();
+    let shouldSkip = false;
 
     // 只在前5行检查标题
     if (i < 5 && removedCount < 2) {
@@ -986,20 +1121,25 @@ const cleanDuplicateTitle = (content, title) => {
           lineClean.includes(targetTitleClean) ||
           targetTitleClean.includes(lineClean)
         ) {
-          removedCount++;
-          continue; // 跳过这一行
+          shouldSkip = true;
         }
 
         // 检查是否有部分关键词匹配（比如"概述"匹配"AI写作助手概述"）
-        const titleWords = title.split(/[、\s]+/);
-        for (const word of titleWords) {
-          if (word.length >= 2 && lineClean.includes(cleanForMatch(word))) {
-            // 可能是相关标题，跳过
-            removedCount++;
-            continue;
+        if (!shouldSkip) {
+          const titleWords = title.split(/[、\s]+/);
+          for (const word of titleWords) {
+            if (word.length >= 2 && lineClean.includes(cleanForMatch(word))) {
+              shouldSkip = true;
+              break;
+            }
           }
         }
       }
+    }
+
+    if (shouldSkip) {
+      removedCount++;
+      continue;
     }
 
     filteredLines.push(line);
@@ -1195,8 +1335,10 @@ watch(
           </div>
           <button
             class="generate-btn"
+            :class="{ 'disabled-btn': !canGenerateOutline && !loading }"
             @click="generateOutline"
-            :disabled="loading"
+            :disabled="loading || !canGenerateOutline"
+            :title="generateOutlineTooltip"
           >
             <Icon v-if="!loading" name="Sparkles" :size="18" />
             <Icon v-else name="Loader2" :size="18" class="spinner" />
@@ -1223,7 +1365,13 @@ watch(
       <OutlineEditor
         v-if="outline.length > 0"
         :outline="outline"
+        :has-generated-all-content="hasGeneratedAllContent"
+        :is-generating-all="isGeneratingAll"
         @update:outline="updateOutline"
+        @show-toast="
+          (msg, type, duration) => emit('show-toast', msg, type, duration)
+        "
+        @generate-all-content="handleGenerateAllContent"
       />
 
       <!-- 内容生成器 -->
@@ -1231,6 +1379,8 @@ watch(
         v-if="outline.length > 0"
         :outline="outline"
         :article-topic="project.name"
+        :is-generating-all="isGeneratingAll"
+        :generating-subsection-path="generatingSubsectionPath"
         @update:outline="updateOutline"
       />
     </div>
@@ -1259,269 +1409,279 @@ watch(
 
             <!-- 评价系统 -->
             <div v-else key="quality" class="quality-list">
-              <TransitionGroup name="slide-fade">
-                <div v-if="visibleItems[0]" key="0" class="quality-item">
-                  <div class="quality-item-left">
-                    <div
-                      class="quality-icon"
-                      :class="{
-                        loading: currentStep === 0,
-                        done: currentStep > 0,
-                      }"
-                    >
-                      <Icon
-                        v-if="currentStep > 0"
-                        name="CheckCircle"
-                        :size="20"
-                      />
-                      <Icon
-                        v-else
-                        name="Loader2"
-                        :size="20"
-                        :class="{ spinner: currentStep >= 0 }"
-                      />
-                    </div>
-                    <span class="quality-name">大纲结构</span>
-                  </div>
-                  <div class="quality-result">
-                    <span class="quality-result-content">{{
-                      qualityResults.structure
-                    }}</span>
-                  </div>
-                  <div
-                    class="quality-score"
-                    :class="getScoreClass(qualityScores.structure)"
-                  >
-                    {{ qualityScores.structure
-                    }}<span class="score-total">/20</span>
-                  </div>
-                </div>
-                <div v-if="visibleItems[1]" key="1" class="quality-item">
-                  <div class="quality-item-left">
-                    <div
-                      class="quality-icon"
-                      :class="{
-                        loading: currentStep === 1,
-                        done: currentStep > 1,
-                      }"
-                    >
-                      <Icon
-                        v-if="currentStep > 1"
-                        name="CheckCircle"
-                        :size="20"
-                      />
-                      <Icon
-                        v-else
-                        name="Loader2"
-                        :size="20"
-                        :class="{ spinner: currentStep >= 0 }"
-                      />
-                    </div>
-                    <span class="quality-name">章节内容</span>
-                  </div>
-                  <div class="quality-result">
-                    <span class="quality-result-content">{{
-                      qualityResults.content
-                    }}</span>
-                  </div>
-                  <div
-                    class="quality-score"
-                    :class="getScoreClass(qualityScores.content)"
-                  >
-                    {{ qualityScores.content
-                    }}<span class="score-total">/20</span>
-                  </div>
-                </div>
-                <div v-if="visibleItems[2]" key="2" class="quality-item">
-                  <div class="quality-item-left">
-                    <div
-                      class="quality-icon"
-                      :class="{
-                        loading: currentStep === 2,
-                        done: currentStep > 2,
-                      }"
-                    >
-                      <Icon
-                        v-if="currentStep > 2"
-                        name="CheckCircle"
-                        :size="20"
-                      />
-                      <Icon
-                        v-else
-                        name="Loader2"
-                        :size="20"
-                        :class="{ spinner: currentStep >= 0 }"
-                      />
-                    </div>
-                    <span class="quality-name">逻辑严密性</span>
-                  </div>
-                  <div class="quality-result">
-                    <span class="quality-result-content">{{
-                      qualityResults.logic
-                    }}</span>
-                  </div>
-                  <div
-                    class="quality-score"
-                    :class="getScoreClass(qualityScores.logic)"
-                  >
-                    {{ qualityScores.logic
-                    }}<span class="score-total">/20</span>
-                  </div>
-                </div>
-                <div v-if="visibleItems[3]" key="3" class="quality-item">
-                  <div class="quality-item-left">
-                    <div
-                      class="quality-icon"
-                      :class="{
-                        loading: currentStep === 3,
-                        done: currentStep > 3,
-                      }"
-                    >
-                      <Icon
-                        v-if="currentStep > 3"
-                        name="CheckCircle"
-                        :size="20"
-                      />
-                      <Icon
-                        v-else
-                        name="Loader2"
-                        :size="20"
-                        :class="{ spinner: currentStep >= 0 }"
-                      />
-                    </div>
-                    <span class="quality-name">内容质量</span>
-                  </div>
-                  <div class="quality-result">
-                    <span class="quality-result-content">{{
-                      qualityResults.quality
-                    }}</span>
-                  </div>
-                  <div
-                    class="quality-score"
-                    :class="getScoreClass(qualityScores.quality)"
-                  >
-                    {{ qualityScores.quality
-                    }}<span class="score-total">/20</span>
-                  </div>
-                </div>
-                <div v-if="visibleItems[4]" key="4" class="quality-item">
-                  <div class="quality-item-left">
-                    <div
-                      class="quality-icon"
-                      :class="{
-                        loading: currentStep === 4,
-                        done: currentStep > 4,
-                      }"
-                    >
-                      <Icon
-                        v-if="currentStep > 4"
-                        name="CheckCircle"
-                        :size="20"
-                      />
-                      <Icon
-                        v-else
-                        name="Loader2"
-                        :size="20"
-                        :class="{ spinner: currentStep >= 0 }"
-                      />
-                    </div>
-                    <span class="quality-name">表达清晰度</span>
-                  </div>
-                  <div class="quality-result">
-                    <span class="quality-result-content">{{
-                      qualityResults.clarity
-                    }}</span>
-                  </div>
-                  <div
-                    class="quality-score"
-                    :class="getScoreClass(qualityScores.clarity)"
-                  >
-                    {{ qualityScores.clarity
-                    }}<span class="score-total">/20</span>
-                  </div>
-                </div>
-              </TransitionGroup>
-
-              <!-- 总分显示 -->
-              <Transition name="slide-fade">
-                <div
-                  v-if="visibleTotalScore"
-                  key="total"
-                  class="total-score-section"
-                >
-                  <div class="total-score-header">
-                    <span class="total-score-label">文章综合评分</span>
-                    <span
-                      class="total-score-value"
-                      :style="{ color: getTotalScoreColor(totalScore) }"
-                    >
-                      {{ totalScore
-                      }}<span class="total-score-suffix">/100</span>
-                    </span>
-                  </div>
-                  <div class="progress-bar-container">
-                    <div
-                      class="progress-bar"
-                      :style="{
-                        width: `${progressBarWidth}%`,
-                        backgroundColor: getTotalScoreColor(totalScore),
-                      }"
-                    ></div>
-                  </div>
-                  <p class="total-comment">{{ totalComment }}</p>
-                </div>
-              </Transition>
-
-              <!-- 修改建议区域 -->
-              <Transition name="slide-fade">
-                <div
-                  v-if="visibleSuggestions"
-                  key="suggestions"
-                  class="suggestions-section"
-                >
-                  <div class="suggestions-header">
-                    <span class="suggestions-title">📋 优先改进建议</span>
-                  </div>
-                  <div class="suggestions-list">
-                    <TransitionGroup name="item-fade">
+              <!-- 错误提示 -->
+              <div v-if="qualityCheckError" class="quality-error-message">
+                <Icon name="AlertCircle" :size="18" />
+                <span>{{ qualityCheckError }}</span>
+              </div>
+              <template v-else>
+                <TransitionGroup name="slide-fade">
+                  <div v-if="visibleItems[0]" key="0" class="quality-item">
+                    <div class="quality-item-left">
                       <div
-                        v-for="(suggestion, index) in suggestions"
-                        :key="index"
-                        v-show="visibleSuggestionItems[index]"
-                        class="suggestion-item"
+                        class="quality-icon"
+                        :class="{
+                          loading: currentStep === 0,
+                          done: currentStep > 0,
+                        }"
                       >
-                        <div class="suggestion-left">
-                          <span class="suggestion-icon">{{
-                            suggestion.icon
-                          }}</span>
-                        </div>
-                        <div class="suggestion-content">
-                          <div class="suggestion-header">
-                            <span class="suggestion-category">{{
-                              suggestion.category
-                            }}</span>
-                            <span class="suggestion-priority"
-                              >优先级 {{ suggestion.priority }}</span
-                            >
-                          </div>
-                          <div v-if="suggestion.issue" class="suggestion-issue">
-                            问题：{{ suggestion.issue }}
-                          </div>
-                          <div class="suggestion-text">
-                            {{ suggestion.text }}
-                          </div>
-                          <div
-                            v-if="suggestion.example"
-                            class="suggestion-example"
-                          >
-                            示例：{{ suggestion.example }}
-                          </div>
-                        </div>
+                        <Icon
+                          v-if="currentStep > 0"
+                          name="CheckCircle"
+                          :size="20"
+                        />
+                        <Icon
+                          v-else
+                          name="Loader2"
+                          :size="20"
+                          :class="{ spinner: currentStep >= 0 }"
+                        />
                       </div>
-                    </TransitionGroup>
+                      <span class="quality-name">大纲结构</span>
+                    </div>
+                    <div class="quality-result">
+                      <span class="quality-result-content">{{
+                        qualityResults.structure
+                      }}</span>
+                    </div>
+                    <div
+                      class="quality-score"
+                      :class="getScoreClass(qualityScores.structure)"
+                    >
+                      {{ qualityScores.structure
+                      }}<span class="score-total">/20</span>
+                    </div>
                   </div>
-                </div>
-              </Transition>
+                  <div v-if="visibleItems[1]" key="1" class="quality-item">
+                    <div class="quality-item-left">
+                      <div
+                        class="quality-icon"
+                        :class="{
+                          loading: currentStep === 1,
+                          done: currentStep > 1,
+                        }"
+                      >
+                        <Icon
+                          v-if="currentStep > 1"
+                          name="CheckCircle"
+                          :size="20"
+                        />
+                        <Icon
+                          v-else
+                          name="Loader2"
+                          :size="20"
+                          :class="{ spinner: currentStep >= 0 }"
+                        />
+                      </div>
+                      <span class="quality-name">章节内容</span>
+                    </div>
+                    <div class="quality-result">
+                      <span class="quality-result-content">{{
+                        qualityResults.content
+                      }}</span>
+                    </div>
+                    <div
+                      class="quality-score"
+                      :class="getScoreClass(qualityScores.content)"
+                    >
+                      {{ qualityScores.content
+                      }}<span class="score-total">/20</span>
+                    </div>
+                  </div>
+                  <div v-if="visibleItems[2]" key="2" class="quality-item">
+                    <div class="quality-item-left">
+                      <div
+                        class="quality-icon"
+                        :class="{
+                          loading: currentStep === 2,
+                          done: currentStep > 2,
+                        }"
+                      >
+                        <Icon
+                          v-if="currentStep > 2"
+                          name="CheckCircle"
+                          :size="20"
+                        />
+                        <Icon
+                          v-else
+                          name="Loader2"
+                          :size="20"
+                          :class="{ spinner: currentStep >= 0 }"
+                        />
+                      </div>
+                      <span class="quality-name">逻辑严密性</span>
+                    </div>
+                    <div class="quality-result">
+                      <span class="quality-result-content">{{
+                        qualityResults.logic
+                      }}</span>
+                    </div>
+                    <div
+                      class="quality-score"
+                      :class="getScoreClass(qualityScores.logic)"
+                    >
+                      {{ qualityScores.logic
+                      }}<span class="score-total">/20</span>
+                    </div>
+                  </div>
+                  <div v-if="visibleItems[3]" key="3" class="quality-item">
+                    <div class="quality-item-left">
+                      <div
+                        class="quality-icon"
+                        :class="{
+                          loading: currentStep === 3,
+                          done: currentStep > 3,
+                        }"
+                      >
+                        <Icon
+                          v-if="currentStep > 3"
+                          name="CheckCircle"
+                          :size="20"
+                        />
+                        <Icon
+                          v-else
+                          name="Loader2"
+                          :size="20"
+                          :class="{ spinner: currentStep >= 0 }"
+                        />
+                      </div>
+                      <span class="quality-name">内容质量</span>
+                    </div>
+                    <div class="quality-result">
+                      <span class="quality-result-content">{{
+                        qualityResults.quality
+                      }}</span>
+                    </div>
+                    <div
+                      class="quality-score"
+                      :class="getScoreClass(qualityScores.quality)"
+                    >
+                      {{ qualityScores.quality
+                      }}<span class="score-total">/20</span>
+                    </div>
+                  </div>
+                  <div v-if="visibleItems[4]" key="4" class="quality-item">
+                    <div class="quality-item-left">
+                      <div
+                        class="quality-icon"
+                        :class="{
+                          loading: currentStep === 4,
+                          done: currentStep > 4,
+                        }"
+                      >
+                        <Icon
+                          v-if="currentStep > 4"
+                          name="CheckCircle"
+                          :size="20"
+                        />
+                        <Icon
+                          v-else
+                          name="Loader2"
+                          :size="20"
+                          :class="{ spinner: currentStep >= 0 }"
+                        />
+                      </div>
+                      <span class="quality-name">表达清晰度</span>
+                    </div>
+                    <div class="quality-result">
+                      <span class="quality-result-content">{{
+                        qualityResults.clarity
+                      }}</span>
+                    </div>
+                    <div
+                      class="quality-score"
+                      :class="getScoreClass(qualityScores.clarity)"
+                    >
+                      {{ qualityScores.clarity
+                      }}<span class="score-total">/20</span>
+                    </div>
+                  </div>
+                </TransitionGroup>
+
+                <!-- 总分显示 -->
+                <Transition name="slide-fade">
+                  <div
+                    v-if="visibleTotalScore"
+                    key="total"
+                    class="total-score-section"
+                  >
+                    <div class="total-score-header">
+                      <span class="total-score-label">文章综合评分</span>
+                      <span
+                        class="total-score-value"
+                        :style="{ color: getTotalScoreColor(totalScore) }"
+                      >
+                        {{ totalScore
+                        }}<span class="total-score-suffix">/100</span>
+                      </span>
+                    </div>
+                    <div class="progress-bar-container">
+                      <div
+                        class="progress-bar"
+                        :style="{
+                          width: `${progressBarWidth}%`,
+                          backgroundColor: getTotalScoreColor(totalScore),
+                        }"
+                      ></div>
+                    </div>
+                    <p class="total-comment">{{ totalComment }}</p>
+                  </div>
+                </Transition>
+
+                <!-- 修改建议区域 -->
+                <Transition name="slide-fade">
+                  <div
+                    v-if="visibleSuggestions"
+                    key="suggestions"
+                    class="suggestions-section"
+                  >
+                    <div class="suggestions-header">
+                      <span class="suggestions-title">📋 优先改进建议</span>
+                    </div>
+                    <div class="suggestions-list">
+                      <TransitionGroup name="item-fade">
+                        <div
+                          v-for="(suggestion, index) in suggestions"
+                          :key="index"
+                          v-show="visibleSuggestionItems[index]"
+                          class="suggestion-item"
+                        >
+                          <div class="suggestion-left">
+                            <span class="suggestion-icon">{{
+                              suggestion.icon
+                            }}</span>
+                          </div>
+                          <div class="suggestion-content">
+                            <div class="suggestion-header">
+                              <span class="suggestion-category">{{
+                                suggestion.category
+                              }}</span>
+                              <span class="suggestion-priority"
+                                >优先级 {{ suggestion.priority }}</span
+                              >
+                            </div>
+                            <div
+                              v-if="suggestion.issue"
+                              class="suggestion-issue"
+                            >
+                              问题：{{ suggestion.issue }}
+                            </div>
+                            <div class="suggestion-text">
+                              {{ suggestion.text }}
+                            </div>
+                            <div
+                              v-if="suggestion.example"
+                              class="suggestion-example"
+                            >
+                              示例：{{ suggestion.example }}
+                            </div>
+                          </div>
+                        </div>
+                      </TransitionGroup>
+                    </div>
+                  </div>
+                </Transition>
+              </template>
             </div>
           </Transition>
         </div>
@@ -1749,6 +1909,17 @@ watch(
   box-shadow: none;
 }
 
+.generate-btn.disabled-btn {
+  opacity: 0.5;
+  background-color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.generate-btn.disabled-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .spinner {
   animation: spin 0.8s linear infinite;
 }
@@ -1939,6 +2110,21 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* 质检错误提示样式 */
+.quality-error-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 12px;
+  color: var(--danger);
+  font-size: 15px;
+  font-weight: 500;
 }
 
 /* 质检项目 - 紧凑高度 */

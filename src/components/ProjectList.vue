@@ -25,6 +25,20 @@ const emit = defineEmits([
   "delete-project",
 ]);
 
+// 移动端检测
+const isMobile = ref(false);
+
+const checkIsMobile = () => {
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  const isTouchDevice =
+    "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  const isMobileUserAgent =
+    /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+      userAgent,
+    );
+  isMobile.value = isTouchDevice && isMobileUserAgent;
+};
+
 // 状态
 const showNewProject = ref(false);
 const showItemMenuId = ref(null);
@@ -156,18 +170,21 @@ const handleProjectClick = (project) => {
 };
 
 onMounted(() => {
+  checkIsMobile();
   document.addEventListener("click", handleClickOutside);
   document.addEventListener("keydown", handleEscKey);
+  window.addEventListener("resize", checkIsMobile);
 });
 
 onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside);
   document.removeEventListener("keydown", handleEscKey);
+  window.removeEventListener("resize", checkIsMobile);
 });
 </script>
 
 <template>
-  <div class="project-list">
+  <div class="project-list" :class="{ 'is-mobile': isMobile }">
     <!-- 新建文章区域 -->
     <div class="new-project-section">
       <button
@@ -189,9 +206,7 @@ onUnmounted(() => {
           autofocus
         />
         <div class="new-project-actions">
-          <button class="action-btn confirm" @click="addProject">
-            创建
-          </button>
+          <button class="action-btn confirm" @click="addProject">创建</button>
           <button class="action-btn cancel" @click="cancelNewProject">
             取消
           </button>
@@ -232,13 +247,12 @@ onUnmounted(() => {
             <span class="item-title">{{ project.name }}</span>
           </div>
 
-          <!-- 三点菜单按钮 -->
-          <button
-            class="item-menu-btn"
-            @click.stop="toggleItemMenu(project, $event)"
-          >
-            <Icon name="MoreVertical" :size="16" />
-          </button>
+          <!-- 三点菜单按钮容器 -->
+          <div class="item-actions" @click.stop>
+            <div class="item-menu-btn" @click="toggleItemMenu(project, $event)">
+              <Icon name="MoreVertical" :size="18" />
+            </div>
+          </div>
         </template>
       </div>
     </div>
@@ -453,32 +467,43 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-/* 三点菜单按钮 */
+/* 三点菜单按钮容器 */
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* PC端hover显示 */
+.project-item:hover .item-actions {
+  opacity: 1;
+}
+
+/* 三点菜单按钮 - 完全照搬章节区域的action-btn样式 */
 .item-menu-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: none;
-  background-color: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   cursor: pointer;
+  transition: all 0.2s ease;
   border-radius: 6px;
-  transition: all 0.15s ease;
   flex-shrink: 0;
-  opacity: 0;
-}
-
-.project-item:hover .item-menu-btn,
-.item-menu-btn:focus {
-  opacity: 1;
-  color: var(--text-secondary);
 }
 
 .item-menu-btn:hover {
-  background-color: var(--bg-input);
   color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+/* 移动端常显 */
+.project-list.is-mobile .item-actions {
+  opacity: 1;
 }
 
 /* 菜单浮层 */
@@ -575,15 +600,19 @@ onUnmounted(() => {
     font-size: 13px;
   }
 
+  /* 小屏幕下常显 */
+  .item-actions {
+    opacity: 1 !important;
+  }
+
   .item-menu-btn {
-    width: 26px;
-    height: 26px;
-    opacity: 1;
+    width: 36px;
+    height: 36px;
   }
 
   .item-menu-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
   }
 
   .item-menu-dropdown {
@@ -636,9 +665,19 @@ onUnmounted(() => {
     font-size: 12px;
   }
 
+  /* 小屏幕下常显 */
+  .item-actions {
+    opacity: 1 !important;
+  }
+
   .item-menu-btn {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
+  }
+
+  .item-menu-btn svg {
+    width: 13px;
+    height: 13px;
   }
 
   .item-menu-dropdown {

@@ -12,6 +12,14 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  isGeneratingAll: {
+    type: Boolean,
+    default: false,
+  },
+  generatingSubsectionPath: {
+    type: Array,
+    default: null,
+  },
 });
 
 const emit = defineEmits(["update:outline"]);
@@ -119,6 +127,12 @@ const flatContent = computed(() => {
 
 // 路径转字符串 key
 const getPathKey = (path) => path.join("-");
+
+// 判断当前小节是否正在被一键生成
+const isCurrentSubsectionGenerating = (path) => {
+  if (!props.isGeneratingAll || !props.generatingSubsectionPath) return false;
+  return getPathKey(path) === getPathKey(props.generatingSubsectionPath);
+};
 
 // 通过完整path定位到章节
 const getSectionByPath = (outline, path) => {
@@ -236,85 +250,6 @@ const getOperationDesc = (op) => {
     regenerate: "重新生成中"
   };
   return map[op] || "处理中";
-};
-
-// 流式请求工具函数
-const streamRequest = async (url, body, onData, onComplete, onError) => {
-  try {
-    console.log("正在调用流式API:", url);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    console.log("响应状态:", response.status, response.statusText);
-    
-    if (!response.ok) {
-      throw new Error(`请求失败: ${response.status}`);
-    }
-
-    // 检查是否是流式响应
-    const contentType = response.headers.get('content-type');
-    console.log("响应类型:", contentType);
-    
-    if (!contentType || !contentType.includes('text/event-stream')) {
-      console.log("不是流式响应，使用普通响应");
-      const result = await response.json();
-      if (result.success && result.data) {
-        onData(result.data);
-        onComplete(result.data);
-      } else {
-        throw new Error("响应格式错误");
-      }
-      return;
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = "";
-    let buffer = "";
-
-    while (true) {
-      const { value, done } = await reader.read();
-      
-      if (done) break;
-      
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      
-      // 保留最后一个不完整的行在 buffer 中
-      buffer = lines.pop() || "";
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        
-        if (trimmed.startsWith("data: ")) {
-          const data = trimmed.slice(6).trim();
-          
-          if (data === "[DONE]") {
-            continue;
-          }
-          
-          try {
-            const json = JSON.parse(data);
-            if (json.content) {
-              fullText += json.content;
-              onData(fullText);
-            }
-          } catch (e) {
-            // 可能不是完整的JSON，继续等待
-          }
-        }
-      }
-    }
-
-    onComplete(fullText);
-  } catch (err) {
-    console.error("流式请求失败:", err);
-    onError(err);
-  }
 };
 
 /**
@@ -458,40 +393,42 @@ const generateSection = async (path) => {
       }),
     });
 
-    console.log("API响应状态:", response.status);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const result = await response.json();
-    console.log("API响应数据:", result);
     
-    let fullContent = "";
     if (result.success && result.data) {
-      fullContent = result.data;
       // 清理内容中可能重复的标题
-      fullContent = cleanDuplicateTitleInContent(fullContent, sectionTitle);
+      const content = cleanDuplicateTitleInContent(result.data, sectionTitle);
+      // 使用打字机效果逐字显示
+      updateContent("");
+      for (let i = 0; i < content.length; i++) {
+        updateContent(content.substring(0, i + 1));
+        // 每10个字符暂停一下，模拟流式效果
+        if (i % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+      }
     } else {
       // 最终fallback
-      fullContent = `这是关于"${sectionTitle}"的详细内容。
+      const fullContent = `这是关于"${sectionTitle}"的详细内容。
 
 在这里可以展开说明相关的细节、例子、和注意事项等。`;
+      
+      updateContent(fullContent);
     }
-    
-    // 使用打字机效果逐字显示
-    updateContent(""); // 先清空
-    await typeWriter(fullContent, (partialText) => {
-      updateContent(partialText);
-    });
     
   } catch (err) {
     console.error("生成失败，使用fallback:", err);
     
-    // 最后fallback，也用打字机效果
+    // 最后fallback
     const fullContent = `这是关于"${sectionTitle}"的详细内容。
 
 在这里可以展开说明相关的细节、例子、和注意事项等。`;
     
-    updateContent("");
-    await typeWriter(fullContent, (partialText) => {
-      updateContent(partialText);
-    });
+    updateContent(fullContent);
     
   } finally {
     generatingPath.value = null;
@@ -679,70 +616,91 @@ watch(() => props.outline, () => {
               {{ cleanTitle(item.title) }}
             </h4>
           </div>
-          <div v-if="item.level > 0" class="header-actions">
+        <div v-if="item.level > 0" class="section-actions">
+          <!-- 一键生成中，当前小节正在生成 -->
+          <button 
+            v-if="isCurrentSubsectionGenerating(item.path)" 
+            class="action-btn generating-btn" 
+            disabled
+          >
+            <Icon name="Loader2" :size="16" class="spinner" />
+            <span class="btn-label">生成中...</span>
+          </button>
+          <!-- 一键生成中，当前小节等待生成 -->
+          <button 
+            v-else-if="props.isGeneratingAll && !item.content" 
+            class="action-btn waiting-btn" 
+            disabled
+          >
+            <Icon name="Loader2" :size="16" class="spinner" />
+            <span class="btn-label">等待生成...</span>
+          </button>
+          <!-- 正常生成按钮 -->
+          <button 
+            v-else-if="!item.content && generatingPath !== getPathKey(item.path)" 
+            class="action-btn generate-btn" 
+            @click="generateSection(item.path)"
+          >
+            <Icon name="Play" :size="16" />
+            <span class="btn-label">生成内容</span>
+          </button>
+          <!-- 单个生成中 -->
+          <button 
+            v-else-if="generatingPath === getPathKey(item.path)" 
+            class="action-btn generating-btn" 
+            disabled
+          >
+            <Icon name="Loader2" :size="16" class="spinner" />
+            <span class="btn-label">生成中...</span>
+          </button>
+          <!-- 已有内容的操作按钮 -->
+          <template v-else-if="item.content">
             <button 
-              v-if="!item.content && generatingPath !== getPathKey(item.path)" 
-              class="action-btn generate-btn" 
-              @click="generateSection(item.path)"
+              v-if="operatingPath !== getPathKey(item.path)"
+              class="action-btn polish-btn" 
+              @click="rewriteSection(item.path, 'polish')" 
+              title="润色优化内容"
             >
-              <Icon name="Play" :size="16" />
-              <span class="btn-label">生成内容</span>
+              <Icon name="Sparkles" :size="16" />
+              <span class="btn-label">润色</span>
             </button>
             <button 
-              v-else-if="generatingPath === getPathKey(item.path)" 
-              class="action-btn generating-btn" 
+              v-else
+              class="action-btn operating-btn" 
               disabled
             >
               <Icon name="Loader2" :size="16" class="spinner" />
-              <span class="btn-label">生成中...</span>
+              <span class="btn-label">{{ getOperationDesc(currentOperation) }}</span>
             </button>
-            <template v-else-if="item.content">
-              <button 
-                v-if="operatingPath !== getPathKey(item.path)"
-                class="action-btn polish-btn" 
-                @click="rewriteSection(item.path, 'polish')" 
-                title="润色优化内容"
-              >
-                <Icon name="Sparkles" :size="16" />
-                <span class="btn-label">润色</span>
-              </button>
-              <button 
-                v-else
-                class="action-btn operating-btn" 
-                disabled
-              >
-                <Icon name="Loader2" :size="16" class="spinner" />
-                <span class="btn-label">{{ getOperationDesc(currentOperation) }}</span>
-              </button>
-              <button 
-                v-if="operatingPath !== getPathKey(item.path)"
-                class="action-btn expand-btn" 
-                @click="rewriteSection(item.path, 'expand')" 
-                title="扩写丰富内容"
-              >
-                <Icon name="ZoomIn" :size="16" />
-                <span class="btn-label">扩写</span>
-              </button>
-              <button 
-                v-if="operatingPath !== getPathKey(item.path)"
-                class="action-btn shorten-btn" 
-                @click="rewriteSection(item.path, 'shorten')" 
-                title="缩写精简内容"
-              >
-                <Icon name="ZoomOut" :size="16" />
-                <span class="btn-label">缩写</span>
-              </button>
-              <button 
-                v-if="operatingPath !== getPathKey(item.path)"
-                class="action-btn regenerate-btn" 
-                @click="generateSection(item.path)" 
-                title="重新生成内容"
-              >
-                <Icon name="RotateCcw" :size="16" />
-                <span class="btn-label">重写</span>
-              </button>
-            </template>
-          </div>
+            <button 
+              v-if="operatingPath !== getPathKey(item.path)"
+              class="action-btn expand-btn" 
+              @click="rewriteSection(item.path, 'expand')" 
+              title="扩写丰富内容"
+            >
+              <Icon name="ZoomIn" :size="16" />
+              <span class="btn-label">扩写</span>
+            </button>
+            <button 
+              v-if="operatingPath !== getPathKey(item.path)"
+              class="action-btn shorten-btn" 
+              @click="rewriteSection(item.path, 'shorten')" 
+              title="缩写精简内容"
+            >
+              <Icon name="ZoomOut" :size="16" />
+              <span class="btn-label">缩写</span>
+            </button>
+            <button 
+              v-if="operatingPath !== getPathKey(item.path)"
+              class="action-btn regenerate-btn" 
+              @click="generateSection(item.path)" 
+              title="重新生成内容"
+            >
+              <Icon name="RotateCcw" :size="16" />
+              <span class="btn-label">重写</span>
+            </button>
+          </template>
+        </div>
         </div>
         <div v-if="item.level > 0" class="section-content">
           <div v-if="item.content" class="textarea-wrapper">
@@ -889,12 +847,14 @@ watch(() => props.outline, () => {
   max-width: 100%;
 }
 
-.header-actions {
+.section-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
   flex-shrink: 0;
+  padding-left: 60px;
+  margin-top: 8px;
 }
 
 .action-btn {
@@ -947,7 +907,8 @@ watch(() => props.outline, () => {
 
 /* 生成中按钮 */
 .generating-btn,
-.operating-btn {
+.operating-btn,
+.waiting-btn {
   border-color: var(--primary);
   background-color: rgba(14, 165, 233, 0.1);
   color: var(--primary);
@@ -1160,11 +1121,12 @@ watch(() => props.outline, () => {
     gap: 10px;
   }
 
-  .header-actions {
+  .section-actions {
     width: 100%;
     justify-content: flex-end;
     flex-wrap: wrap;
     gap: 6px;
+    padding-left: 0;
   }
 
   .header-left {
@@ -1264,7 +1226,7 @@ watch(() => props.outline, () => {
     gap: 8px;
   }
 
-  .header-actions {
+  .section-actions {
     gap: 4px;
   }
 
