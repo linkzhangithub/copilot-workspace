@@ -814,6 +814,18 @@ const showPreviousQualityCheck = () => {
 
 // 智能文章质检
 const startQualityCheck = async () => {
+  // 检查是否有文章内容
+  const hasContent = outline.value.some(
+    (section) =>
+      section.content ||
+      (section.children && section.children.some((sub) => sub.content)),
+  );
+
+  if (!hasContent) {
+    emit("show-toast", "请先生成文章内容", "warning", 3000);
+    return;
+  }
+
   // 重置状态
   isQualityCheckCancelled.value = false;
   qualityCheckCompleted.value = false;
