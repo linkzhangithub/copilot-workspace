@@ -50,12 +50,12 @@ const showBackToTop = ref(false);
 
 // 计算是否可以生成大纲
 const canGenerateOutline = computed(() => {
-  return outline.value.length === 0 && !hasGeneratedOutline.value;
+  return outline.value.length === 0;
 });
 
 const generateOutlineTooltip = computed(() => {
-  if (hasGeneratedOutline.value) {
-    return "大纲已生成，可手动调整结构";
+  if (outline.value.length > 0) {
+    return "大纲已存在，请先清空大纲";
   }
   return "";
 });
