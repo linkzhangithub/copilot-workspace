@@ -4,7 +4,7 @@ const STORAGE_KEY = 'ai-writing-theme'
 const THEME_DARK = 'dark'
 const THEME_LIGHT = 'light'
 
-const currentTheme = ref(THEME_DARK)
+const currentTheme = ref(THEME_LIGHT)
 
 export function useTheme() {
   const initTheme = () => {

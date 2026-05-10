@@ -5,22 +5,22 @@
   --primary-hover: #0284C7;
   --accent: #3B82F6;
   
-  /* 背景色 - 暗色主题默认 */
-  --bg-page: #0B1120;
-  --bg-primary: #111827;
-  --bg-sidebar: #0F172A;
-  --bg-input: #1E293B;
-  --bg-hover: #2D3748;
-  --selected-bg: #1E293B;
+  /* 背景色 - 亮色主题默认 */
+  --bg-page: #F7F7F8;
+  --bg-primary: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-input: #F1F5F9;
+  --bg-hover: #E2E8F0;
+  --selected-bg: #DBEAFE;
   
   /* 文字色 */
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
-  --text-tertiary: #475569;
+  --text-primary: #1A1A2E;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --text-tertiary: #CBD5E1;
   
   /* 边框色 */
-  --border: #2D3748;
+  --border: #E2E8F0;
   
   /* 状态色 */
   --success: #10B981;
