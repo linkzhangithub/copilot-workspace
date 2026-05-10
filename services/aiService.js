@@ -464,9 +464,10 @@ ${contextInfo.originalContent || ""}
         role: "user",
         content: `【文章信息】
 主题：${topic}
-内容：${articleContent}
+内容：
+${articleContent}
 
-【任务】请从以下5个维度评价这篇文章，并给出3条最优先的改进建议：
+【任务】请从以下5个维度评价这篇文章，并给出3条最优先的改进建议。
 
 【评价要求】
 - 每个维度用50字以内概括评价
@@ -479,14 +480,19 @@ ${contextInfo.originalContent || ""}
 3. 每条建议控制在50-80字
 4. 为每条建议分类：结构/内容/逻辑/表达/质量
 
+【重要提示】
+- 即使文章内容不完整，也要基于已有内容给出客观评价
+- 必须严格按照JSON格式返回，不要添加任何其他文字
+- 确保所有字段都有值，不要返回空字符串
+
 【输出格式】
-必须严格按照以下JSON格式输出，不要添加任何其他文字：
+严格按照以下JSON格式输出：
 {
-  "structure": "大纲结构评价",
-  "content": "章节内容评价",
-  "logic": "逻辑严密性评价",
-  "quality": "内容质量评价",
-  "clarity": "表达清晰度评价",
+  "structure": "大纲结构评价内容",
+  "content": "章节内容评价内容",
+  "logic": "逻辑严密性评价内容",
+  "quality": "内容质量评价内容",
+  "clarity": "表达清晰度评价内容",
   "structureScore": 15,
   "contentScore": 16,
   "logicScore": 14,
@@ -524,11 +530,15 @@ ${contextInfo.originalContent || ""}
         model: this.model,
         messages,
         temperature: 0.1,
-        max_tokens: 1000,
+        max_tokens: 2000,
       });
 
       const message = response.data.choices[0]?.message;
       let result = message?.content || message?.reasoning_content || "";
+
+      console.log("=== AI 质检原始返回 ===");
+      console.log("返回内容长度:", result.length);
+      console.log("返回内容:", result);
 
       // 清理返回内容，只保留JSON
       result = result.trim();
@@ -538,12 +548,16 @@ ${contextInfo.originalContent || ""}
         .replace(/`{1,2}/g, "")
         .trim();
 
+      console.log("清理后的内容:", result);
+
       // 提取JSON部分
       const jsonStart = result.indexOf("{");
       const jsonEnd = result.lastIndexOf("}");
       if (jsonStart > -1 && jsonEnd > jsonStart) {
         result = result.substring(jsonStart, jsonEnd + 1);
       }
+
+      console.log("提取的JSON:", result);
 
       // 解析各个维度的评价和分数
       const evaluations = {

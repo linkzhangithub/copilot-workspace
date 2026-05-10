@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import Icon from './Icon.vue'
 
 const props = defineProps({
   message: {

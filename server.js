@@ -473,6 +473,12 @@ app.post("/api/ai/quality-check-full", async (req, res) => {
   try {
     const { topic, outline, fullMarkdown } = req.body;
 
+    console.log("=== 质检请求 ===");
+    console.log("主题:", topic);
+    console.log("大纲长度:", outline?.length);
+    console.log("fullMarkdown长度:", fullMarkdown?.length);
+    console.log("fullMarkdown前100字符:", fullMarkdown?.substring(0, 100));
+
     if (!topic || typeof topic !== "string") {
       return res
         .status(400)

@@ -819,12 +819,18 @@ const startQualityCheck = async () => {
     return;
   }
 
+  console.log("=== 质检内容检查 ===");
+  console.log("outline长度:", outline.value.length);
+  console.log("outline完整数据:", JSON.stringify(outline.value, null, 2));
+
   // 检查是否有文章内容
   const hasContent = outline.value.some(
     (section) =>
       section.content ||
       (section.children && section.children.some((sub) => sub.content)),
   );
+
+  console.log("hasContent结果:", hasContent);
 
   if (!hasContent) {
     emit("show-toast", "请先生成文章内容", "warning", 3000);
@@ -837,6 +843,12 @@ const startQualityCheck = async () => {
 
   // 如果内容未变且有结果，直接显示
   const fullMarkdown = generateFullMarkdown();
+
+  console.log("=== 前端质检 ===");
+  console.log("fullMarkdown长度:", fullMarkdown.length);
+  console.log("fullMarkdown前200字符:", fullMarkdown.substring(0, 200));
+  console.log("outline:", outline.value);
+
   if (
     fullMarkdown === lastQualityCheck.value.articleContent &&
     lastQualityCheck.value.results &&
@@ -915,6 +927,26 @@ const startQualityCheck = async () => {
     }
 
     const result = await response.json();
+
+    console.log("=== 后端返回的完整数据 ===");
+    console.log("result:", result);
+    console.log("result.success:", result.success);
+    console.log("result.error:", result.error);
+    console.log("result.data:", result.data);
+    console.log("result.data 结构:", JSON.stringify(result.data, null, 2));
+
+    // 检查是否成功
+    if (!result.success) {
+      throw new Error(result.error || "质检请求失败");
+    }
+
+    // 检查数据是否有效
+    if (!result.data || result.data.totalScore === 0) {
+      console.error("质检数据无效，可能是 AI 返回格式错误");
+      emit("show-toast", "质检失败，请稍后重试", "error", 3000);
+      qualityCheckLoading.value = false;
+      return;
+    }
 
     // 检查是否被中断
     if (isQualityCheckCancelled.value) return;
