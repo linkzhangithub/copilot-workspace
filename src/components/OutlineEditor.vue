@@ -25,6 +25,14 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isPaused: {
+    type: Boolean,
+    default: false,
+  },
+  generateAllButtonState: {
+    type: String,
+    default: "ready",
+  },
 });
 
 const emit = defineEmits([
@@ -750,15 +758,35 @@ const getItemStyle = (item, index) => {
     <button
       class="generate-all-btn"
       :class="{
-        'disabled-btn': hasGeneratedAllContent,
-        generating: isGeneratingAll,
+        'disabled-btn': generateAllButtonState === 'completed',
+        generating: generateAllButtonState === 'generating',
+        paused: generateAllButtonState === 'paused',
       }"
       @click="generateAllContent"
-      :disabled="hasGeneratedAllContent || isGeneratingAll"
+      :disabled="generateAllButtonState === 'completed'"
     >
-      <Icon v-if="!isGeneratingAll" name="Sparkles" :size="18" />
-      <Icon v-else name="Loader2" :size="18" class="spinner" />
-      <span>{{ isGeneratingAll ? "生成中..." : "一键生成文章" }}</span>
+      <Icon
+        v-if="generateAllButtonState === 'generating'"
+        name="Loader2"
+        :size="18"
+        class="spinner"
+      />
+      <Icon
+        v-else-if="generateAllButtonState === 'paused'"
+        name="Play"
+        :size="18"
+      />
+      <Icon v-else name="Sparkles" :size="18" />
+      <span v-if="generateAllButtonState === 'generating'"
+        >正在生成，点击暂停</span
+      >
+      <span v-else-if="generateAllButtonState === 'paused'"
+        >已暂停，点击继续</span
+      >
+      <span v-else-if="generateAllButtonState === 'completed'"
+        >文章已生成完成</span
+      >
+      <span v-else>一键生成文章</span>
     </button>
   </div>
 </template>
@@ -1120,6 +1148,12 @@ const getItemStyle = (item, index) => {
   border-color: var(--primary);
   background-color: rgba(14, 165, 233, 0.1);
   color: var(--primary);
+}
+
+.generate-all-btn.paused {
+  border-color: #9333ea;
+  background-color: rgba(147, 51, 234, 0.1);
+  color: #9333ea;
 }
 
 .spinner {

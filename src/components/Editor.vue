@@ -41,6 +41,7 @@ const titleInput = ref(null);
 const hasGeneratedOutline = ref(false);
 const hasGeneratedAllContent = ref(false);
 const isGeneratingAll = ref(false);
+const isPaused = ref(false);
 const generatingSubsectionPath = ref(null);
 
 // 计算是否可以生成大纲
@@ -65,6 +66,34 @@ const totalSubsections = computed(() => {
 // 计算是否可以添加更多小节
 const canAddMoreSubsections = computed(() => {
   return totalSubsections.value < MAX_TOTAL_SUBSECTIONS;
+});
+
+// 计算是否有空白内容（未生成的小节）
+const hasEmptySubsections = computed(() => {
+  for (const chapter of outline.value) {
+    if (chapter.children) {
+      for (const subsection of chapter.children) {
+        if (!subsection.content) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+});
+
+// 计算一键生成按钮的状态
+const generateAllButtonState = computed(() => {
+  if (isGeneratingAll.value && !isPaused.value) {
+    return "generating"; // 生成中
+  } else if (isPaused.value) {
+    return "paused"; // 已暂停
+  } else if (hasEmptySubsections.value) {
+    return "ready"; // 可以生成
+  } else if (outline.value.length > 0) {
+    return "completed"; // 已完成
+  }
+  return "ready"; // 默认状态
 });
 
 // 质检弹窗相关
@@ -415,17 +444,55 @@ const updateOutline = (newOutline) => {
 
 // 一键生成所有内容
 const handleGenerateAllContent = async () => {
-  isGeneratingAll.value = true;
-  hasGeneratedAllContent.value = false;
+  // 如果正在生成且未暂停，则暂停
+  if (isGeneratingAll.value && !isPaused.value) {
+    isPaused.value = true;
 
-  emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
+    // 清除正在生成的小节内容
+    if (generatingSubsectionPath.value) {
+      const [i, j] = generatingSubsectionPath.value;
+      if (
+        outline.value[i] &&
+        outline.value[i].children &&
+        outline.value[i].children[j]
+      ) {
+        outline.value[i].children[j].content = "";
+        outline.value = [...outline.value];
+      }
+    }
+
+    emit("show-toast", "已暂停生成，点击继续生成", "warning", 2000);
+    return;
+  }
+
+  // 如果已暂停，则继续生成（不return，继续执行生成循环）
+  if (isPaused.value) {
+    isPaused.value = false;
+    emit("show-toast", "继续生成内容...", "info", 2000);
+    // 不return，继续执行生成循环
+  } else {
+    // 开始新的生成
+    isGeneratingAll.value = true;
+    hasGeneratedAllContent.value = false;
+    emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
+  }
 
   try {
     for (let i = 0; i < outline.value.length; i++) {
+      // 检查是否暂停
+      if (isPaused.value) {
+        return; // 暂停时退出循环
+      }
+
       const chapter = outline.value[i];
 
       if (chapter.children && chapter.children.length > 0) {
         for (let j = 0; j < chapter.children.length; j++) {
+          // 检查是否暂停
+          if (isPaused.value) {
+            return; // 暂停时退出循环
+          }
+
           const subsection = chapter.children[j];
 
           if (!subsection.content) {
@@ -460,6 +527,14 @@ const handleGenerateAllContent = async () => {
                 // 使用打字机效果逐字显示
                 const content = result.data;
                 for (let k = 0; k < content.length; k++) {
+                  // 检查是否暂停
+                  if (isPaused.value) {
+                    // 暂停时清除当前正在生成的内容
+                    outline.value[i].children[j].content = "";
+                    outline.value = [...outline.value];
+                    return; // 暂停时退出循环
+                  }
+
                   outline.value[i].children[j].content = content.substring(
                     0,
                     k + 1,
@@ -482,13 +557,18 @@ const handleGenerateAllContent = async () => {
       }
     }
 
-    hasGeneratedAllContent.value = true;
-    emit("show-toast", "所有小节内容生成完成！", "success", 3000);
+    // 检查是否所有内容都生成完成
+    if (!isPaused.value && !hasEmptySubsections.value) {
+      hasGeneratedAllContent.value = true;
+      emit("show-toast", "所有小节内容生成完成！", "success", 3000);
+    }
   } catch (err) {
     console.error("一键生成失败:", err);
     emit("show-toast", "生成失败，请重试", "error", 3000);
   } finally {
-    isGeneratingAll.value = false;
+    if (!isPaused.value) {
+      isGeneratingAll.value = false;
+    }
     generatingSubsectionPath.value = null;
   }
 };
@@ -1367,6 +1447,8 @@ watch(
         :outline="outline"
         :has-generated-all-content="hasGeneratedAllContent"
         :is-generating-all="isGeneratingAll"
+        :is-paused="isPaused"
+        :generate-all-button-state="generateAllButtonState"
         @update:outline="updateOutline"
         @show-toast="
           (msg, type, duration) => emit('show-toast', msg, type, duration)
@@ -1380,6 +1462,7 @@ watch(
         :outline="outline"
         :article-topic="project.name"
         :is-generating-all="isGeneratingAll"
+        :is-paused="isPaused"
         :generating-subsection-path="generatingSubsectionPath"
         @update:outline="updateOutline"
       />

@@ -16,6 +16,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isPaused: {
+    type: Boolean,
+    default: false,
+  },
   generatingSubsectionPath: {
     type: Array,
     default: null,
@@ -130,7 +134,7 @@ const getPathKey = (path) => path.join("-");
 
 // 判断当前小节是否正在被一键生成
 const isCurrentSubsectionGenerating = (path) => {
-  if (!props.isGeneratingAll || !props.generatingSubsectionPath) return false;
+  if (!props.isGeneratingAll || !props.generatingSubsectionPath || props.isPaused) return false;
   return getPathKey(path) === getPathKey(props.generatingSubsectionPath);
 };
 
@@ -626,9 +630,9 @@ watch(() => props.outline, () => {
             <Icon name="Loader2" :size="16" class="spinner" />
             <span class="btn-label">生成中...</span>
           </button>
-          <!-- 一键生成中，当前小节等待生成 -->
+          <!-- 一键生成中且未暂停，当前小节等待生成 -->
           <button 
-            v-else-if="props.isGeneratingAll && !item.content" 
+            v-else-if="props.isGeneratingAll && !props.isPaused && !item.content" 
             class="action-btn waiting-btn" 
             disabled
           >
