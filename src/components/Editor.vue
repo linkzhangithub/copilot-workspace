@@ -814,6 +814,11 @@ const showPreviousQualityCheck = () => {
 
 // 智能文章质检
 const startQualityCheck = async () => {
+  // 防止重复点击
+  if (qualityCheckLoading.value) {
+    return;
+  }
+
   // 检查是否有文章内容
   const hasContent = outline.value.some(
     (section) =>
@@ -1139,6 +1144,9 @@ const closeQualityCheck = () => {
     qualityCheckLoading.value = false;
     // 使用 Toast 提示中断信息
     emit("show-toast", "已中断质检", "warning", 2500);
+  } else {
+    // 正常关闭时重置中断标志
+    isQualityCheckCancelled.value = false;
   }
 
   showQualityCheck.value = false;
