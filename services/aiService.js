@@ -659,6 +659,10 @@ ${articleContent}
       }
 
       console.log("解析后的评价:", evaluations);
+      
+      // 保存原始返回，便于调试
+      evaluations._rawResponse = result;
+      
       return evaluations;
     } catch (error) {
       console.error("质检失败:", error);

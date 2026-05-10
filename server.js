@@ -491,7 +491,14 @@ app.post("/api/ai/quality-check-full", async (req, res) => {
       fullMarkdown,
     );
 
-    res.json({ success: true, data: result });
+    // 把AI原始返回也返回给前端，便于调试
+    res.json({ 
+      success: true, 
+      data: result,
+      debug: {
+        aiRawResponse: result._rawResponse || "无原始返回"
+      }
+    });
   } catch (error) {
     console.error("质检失败:", error.message);
     res.status(500).json({ success: false, error: error.message });

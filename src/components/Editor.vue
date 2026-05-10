@@ -933,7 +933,14 @@ const startQualityCheck = async () => {
     console.log("result.success:", result.success);
     console.log("result.error:", result.error);
     console.log("result.data:", result.data);
+    console.log("result.data 类型:", typeof result.data);
+    console.log("result.data 是数组?", Array.isArray(result.data));
     console.log("result.data 结构:", JSON.stringify(result.data, null, 2));
+
+    if (result.debug) {
+      console.log("=== AI 原始返回（调试信息） ===");
+      console.log("AI 原始返回:", result.debug.aiRawResponse);
+    }
 
     // 检查是否成功
     if (!result.success) {
@@ -943,9 +950,17 @@ const startQualityCheck = async () => {
     // 检查数据是否有效
     if (!result.data || result.data.totalScore === 0) {
       console.error("质检数据无效，可能是 AI 返回格式错误");
-      emit("show-toast", "质检失败，请稍后重试", "error", 3000);
-      qualityCheckLoading.value = false;
-      return;
+      console.log("建议：查看后端日志，了解 AI 的原始返回内容");
+      console.log("result.data 详细信息:", {
+        hasData: !!result.data,
+        totalScore: result.data?.totalScore,
+        structure: result.data?.structure,
+        content: result.data?.content,
+      });
+      // 不再阻止质检继续进行，让用户看到更多信息
+      // emit("show-toast", "质检失败，请稍后重试", "error", 3000);
+      // qualityCheckLoading.value = false;
+      // return;
     }
 
     // 检查是否被中断
