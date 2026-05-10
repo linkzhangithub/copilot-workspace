@@ -127,7 +127,6 @@ const progressBarWidth = ref(0);
 const currentStep = ref(-1); // -1=未开始, 0-4=当前步骤
 const isQualityCheckCancelled = ref(false); // 标记是否被中断
 const qualityCheckCompleted = ref(false); // 标记是否完成
-const showCancelMessage = ref(false); // 显示中断提示
 
 // 修改建议相关状态
 const visibleSuggestions = ref(false);
@@ -1125,12 +1124,9 @@ const closeQualityCheck = () => {
   // 判断是否还在加载或生成过程中
   if (!qualityCheckCompleted.value && qualityCheckLoading.value) {
     isQualityCheckCancelled.value = true;
-    // 显示中断提示
-    showCancelMessage.value = true;
-    // 2.5秒后自动消失
-    setTimeout(() => {
-      showCancelMessage.value = false;
-    }, 2500);
+    qualityCheckLoading.value = false;
+    // 使用 Toast 提示中断信息
+    emit("show-toast", "已中断质检", "warning", 2500);
   }
 
   showQualityCheck.value = false;
@@ -1406,14 +1402,6 @@ watch(
 <template>
   <div class="editor" ref="editorRef">
     <div class="editor-content">
-      <!-- 中断提示消息 -->
-      <Transition name="message-fade">
-        <div v-if="showCancelMessage" class="cancel-message">
-          <Icon name="X" :size="16" />
-          <span>已中断质检</span>
-        </div>
-      </Transition>
-
       <!-- 错误提示 -->
       <div v-if="error" class="error-message">
         <Icon name="AlertCircle" :size="18" />
@@ -1842,37 +1830,6 @@ watch(
   margin-bottom: 32px;
   font-size: 14px;
   font-weight: 500;
-}
-
-/* 中断提示消息 */
-.cancel-message {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background-color: var(--bg-primary);
-  color: var(--text-secondary);
-  padding: 14px 22px;
-  border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* 消息淡入淡出动画 */
-.message-fade-enter-active,
-.message-fade-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.message-fade-enter-from,
-.message-fade-leave-to {
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.95);
 }
 
 /* 项目主题区 */
