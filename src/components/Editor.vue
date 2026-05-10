@@ -1174,6 +1174,20 @@ const closeQualityCheck = () => {
   if (!qualityCheckCompleted.value && qualityCheckLoading.value) {
     isQualityCheckCancelled.value = true;
     qualityCheckLoading.value = false;
+
+    // 清理错误的质检记录，防止下次显示错误数据
+    lastQualityCheck.value = {
+      articleContent: "",
+      results: null,
+      scores: null,
+      totalScore: 0,
+      totalComment: "",
+      suggestions: null,
+    };
+
+    // 清理 localStorage
+    localStorage.removeItem(getQualityCheckStorageKey());
+
     // 使用 Toast 提示中断信息
     emit("show-toast", "已中断质检", "warning", 2500);
   } else {
