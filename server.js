@@ -23,8 +23,37 @@ if (fs.existsSync(envPath)) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const isProduction = process.env.NODE_ENV === 'production';
+
+const corsOptions = {
+  origin: isProduction 
+    ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+
+const apiKeyAuth = (req, res, next) => {
+  if (!isProduction) {
+    return next();
+  }
+
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    return res.status(401).json({ 
+      success: false, 
+      error: 'API key required. Please provide x-api-key header or apiKey query parameter.' 
+    });
+  }
+  
+  next();
+};
+
+app.use('/api', apiKeyAuth);
 
 let aiService = null;
 try {

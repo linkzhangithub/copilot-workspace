@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import ProjectList from "./components/ProjectList.vue";
 import ProjectSearch from "./components/ProjectSearch.vue";
 import Editor from "./components/Editor.vue";
@@ -102,19 +102,22 @@ const handleDeleteProject = (id) => {
   }
 };
 
-// 检测屏幕尺寸
+const checkScreen = () => {
+  if (window.innerWidth < 768) {
+    sidebarOpen.value = false;
+  } else {
+    sidebarOpen.value = true;
+  }
+};
+
 onMounted(() => {
   loadProjects();
-  const checkScreen = () => {
-    if (window.innerWidth < 768) {
-      sidebarOpen.value = false;
-    } else {
-      sidebarOpen.value = true;
-    }
-  };
-
   checkScreen();
   window.addEventListener("resize", checkScreen);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", checkScreen);
 });
 </script>
 
