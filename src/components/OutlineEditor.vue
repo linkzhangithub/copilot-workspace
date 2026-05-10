@@ -39,6 +39,7 @@ const emit = defineEmits([
   "update:outline",
   "show-toast",
   "generate-all-content",
+  "scroll-to-section",
 ]);
 
 // 限制常量
@@ -298,6 +299,10 @@ const addSubSectionByPath = async (path, event) => {
   }
 };
 
+const scrollToSection = (path) => {
+  emit("scroll-to-section", path);
+};
+
 const startEdit = (path) => {
   editingPath.value = path;
   editingValue.value = getSectionByPath(path).title;
@@ -427,7 +432,13 @@ const getDisplayNumber = (path) => path.map((p) => p + 1).join(".");
 
 // 收起所有展开的小节
 const collapseAll = () => {
-  expandedState.value = {};
+  const newState = {};
+  // 遍历所有章节，设置为折叠状态
+  props.outline.forEach((chapter, index) => {
+    const pathKey = getPathKey([index]);
+    newState[pathKey] = true; // true表示折叠
+  });
+  expandedState.value = newState;
 };
 
 // 深拷贝函数
@@ -730,6 +741,13 @@ const getItemStyle = (item, index) => {
             </div>
 
             <div class="item-right" @click.stop>
+              <div
+                class="action-btn locate-btn"
+                @click="scrollToSection(item.path)"
+                title="快速定位到内容"
+              >
+                <Icon name="Navigation" :size="18" />
+              </div>
               <div
                 class="action-btn edit-btn"
                 @click="startEdit(item.path)"

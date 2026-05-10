@@ -14,6 +14,7 @@ import {
   GitBranch,
   CheckCircle,
   MessageSquare,
+  ArrowUp,
 } from "lucide-vue-next";
 
 const props = defineProps({
@@ -43,6 +44,9 @@ const hasGeneratedAllContent = ref(false);
 const isGeneratingAll = ref(false);
 const isPaused = ref(false);
 const generatingSubsectionPath = ref(null);
+const contentGeneratorRef = ref(null);
+const editorRef = ref(null);
+const showBackToTop = ref(false);
 
 // 计算是否可以生成大纲
 const canGenerateOutline = computed(() => {
@@ -1322,7 +1326,27 @@ const cancelEditTitle = () => {
   isEditingTitle.value = false;
 };
 
-// 暴露方法给父组件
+const handleScrollToSection = (path) => {
+  if (contentGeneratorRef.value) {
+    contentGeneratorRef.value.scrollToSection(path);
+  }
+};
+
+const handleEditorScroll = () => {
+  if (editorRef.value) {
+    showBackToTop.value = editorRef.value.scrollTop > 300;
+  }
+};
+
+const scrollToTop = () => {
+  if (editorRef.value) {
+    editorRef.value.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+};
+
 defineExpose({
   exportMarkdown,
   canExport,
@@ -1330,13 +1354,20 @@ defineExpose({
 
 onMounted(() => {
   loadFromStorage();
-  // 加载质检记录
   loadQualityCheckRecord();
   document.addEventListener("click", handleGlobalClick);
+
+  if (editorRef.value) {
+    editorRef.value.addEventListener("scroll", handleEditorScroll);
+  }
 });
 
 onUnmounted(() => {
   document.removeEventListener("click", handleGlobalClick);
+
+  if (editorRef.value) {
+    editorRef.value.removeEventListener("scroll", handleEditorScroll);
+  }
 });
 
 // 监听项目 ID 变化，重新加载质检记录
@@ -1373,7 +1404,7 @@ watch(
 </script>
 
 <template>
-  <div class="editor">
+  <div class="editor" ref="editorRef">
     <div class="editor-content">
       <!-- 中断提示消息 -->
       <Transition name="message-fade">
@@ -1454,11 +1485,12 @@ watch(
           (msg, type, duration) => emit('show-toast', msg, type, duration)
         "
         @generate-all-content="handleGenerateAllContent"
+        @scroll-to-section="handleScrollToSection"
       />
 
-      <!-- 内容生成器 -->
       <ContentGenerator
         v-if="outline.length > 0"
+        ref="contentGeneratorRef"
         :outline="outline"
         :article-topic="project.name"
         :is-generating-all="isGeneratingAll"
@@ -1770,6 +1802,18 @@ watch(
         </div>
       </div>
     </div>
+
+    <!-- 回到顶部按钮 -->
+    <Transition name="fade">
+      <button
+        v-if="showBackToTop"
+        class="back-to-top-btn"
+        @click="scrollToTop"
+        title="回到顶部"
+      >
+        <Icon name="ArrowUp" :size="20" />
+      </button>
+    </Transition>
   </div>
 </template>
 
@@ -2579,6 +2623,68 @@ watch(
   .topic-hint {
     font-size: 13px;
     margin-top: 10px 0 0 0;
+  }
+}
+
+/* 回到顶部按钮 */
+.back-to-top-btn {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--bg-sidebar);
+  border: 2px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+}
+
+.back-to-top-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.2);
+}
+
+.back-to-top-btn:active {
+  transform: translateY(-1px);
+}
+
+/* 淡入淡出动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .back-to-top-btn {
+    right: 20px;
+    bottom: 20px;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .back-to-top-btn {
+    right: 16px;
+    bottom: 16px;
+    width: 40px;
+    height: 40px;
   }
 }
 </style>

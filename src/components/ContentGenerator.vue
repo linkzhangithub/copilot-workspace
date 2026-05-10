@@ -566,6 +566,22 @@ const stopDrag = () => {
   document.removeEventListener('mouseup', stopDrag);
 };
 
+const scrollToSection = (path) => {
+  const pathKey = getPathKey(path);
+  const sectionElement = document.getElementById(`section-${pathKey}`);
+  
+  if (sectionElement) {
+    sectionElement.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  }
+};
+
+defineExpose({
+  scrollToSection
+});
+
 // 生命周期钩子
 onMounted(() => {
   checkIsMobile();
@@ -604,7 +620,10 @@ watch(() => props.outline, () => {
         class="section-item"
         :class="`level-${item.level}`"
       >
-        <div class="section-header">
+        <div 
+          class="section-header"
+          :id="item.level > 0 ? `section-${getPathKey(item.path)}` : undefined"
+        >
           <div class="header-left">
             <div class="content-number">{{ getDisplayNumber(item.path) }}</div>
             <h3 
