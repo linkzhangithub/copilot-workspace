@@ -47,6 +47,8 @@ const generatingSubsectionPath = ref(null);
 const contentGeneratorRef = ref(null);
 const editorRef = ref(null);
 const showBackToTop = ref(false);
+const currentGeneratingIndex = ref(0); // 当前正在生成的小节索引
+const totalGeneratingCount = ref(0); // 总共需要生成的小节数
 
 // 计算是否可以生成大纲
 const canGenerateOutline = computed(() => {
@@ -98,6 +100,18 @@ const generateAllButtonState = computed(() => {
     return "completed"; // 已完成
   }
   return "ready"; // 默认状态
+});
+
+// 计算是否有内容正在生成
+const isGeneratingContent = computed(() => {
+  // 如果有单独的小节正在生成，无论是否暂停，都阻止质检
+  if (generatingSubsectionPath.value !== null) return true;
+
+  // 如果一键生成正在进行中且未暂停，阻止质检
+  if (isGeneratingAll.value && !isPaused.value) return true;
+
+  // 其他情况允许质检（包括一键生成已暂停）
+  return false;
 });
 
 // 质检弹窗相关
@@ -477,6 +491,23 @@ const handleGenerateAllContent = async () => {
     // 开始新的生成
     isGeneratingAll.value = true;
     hasGeneratedAllContent.value = false;
+
+    // 计算总共有多少个小节需要生成
+    let emptyCount = 0;
+    for (let i = 0; i < outline.value.length; i++) {
+      const chapter = outline.value[i];
+      if (chapter.children && chapter.children.length > 0) {
+        for (let j = 0; j < chapter.children.length; j++) {
+          const subsection = chapter.children[j];
+          if (!subsection.content) {
+            emptyCount++;
+          }
+        }
+      }
+    }
+    totalGeneratingCount.value = emptyCount;
+    currentGeneratingIndex.value = 0;
+
     emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
   }
 
@@ -500,6 +531,15 @@ const handleGenerateAllContent = async () => {
 
           if (!subsection.content) {
             generatingSubsectionPath.value = [i, j];
+            currentGeneratingIndex.value++; // 更新当前生成的小节索引
+
+            // 使用 Toast 提示当前正在生成哪一章节哪一小节
+            emit(
+              "show-toast",
+              `正在生成第 ${i + 1} 章第 ${j + 1} 小节内容...`,
+              "info",
+              2000,
+            );
 
             try {
               const response = await fetch("/api/ai/generate-content-simple", {
@@ -563,7 +603,12 @@ const handleGenerateAllContent = async () => {
     // 检查是否所有内容都生成完成
     if (!isPaused.value && !hasEmptySubsections.value) {
       hasGeneratedAllContent.value = true;
-      emit("show-toast", "所有小节内容生成完成！", "success", 3000);
+      emit(
+        "show-toast",
+        "所有小节内容生成完成！可以进行智能质检了",
+        "success",
+        5000,
+      );
     }
   } catch (err) {
     console.error("一键生成失败:", err);
@@ -816,6 +861,12 @@ const showPreviousQualityCheck = () => {
 const startQualityCheck = async () => {
   // 防止重复点击
   if (qualityCheckLoading.value) {
+    return;
+  }
+
+  // 检查是否有内容正在生成
+  if (isGeneratingContent.value) {
+    emit("show-toast", "内容生成中，请稍后再试", "warning", 3000);
     return;
   }
 
@@ -1525,6 +1576,7 @@ watch(
         :is-paused="isPaused"
         :generating-subsection-path="generatingSubsectionPath"
         @update:outline="updateOutline"
+        @update:generating-path="generatingSubsectionPath = $event"
       />
     </div>
 

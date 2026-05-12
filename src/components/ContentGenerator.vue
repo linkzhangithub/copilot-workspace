@@ -26,7 +26,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["update:outline"]);
+const emit = defineEmits(["update:outline", "update:generating-path"]);
 
 const generatingPath = ref(null);
 const operatingPath = ref(null);
@@ -366,6 +366,9 @@ const generateSection = async (path) => {
 
   const pathKey = getPathKey(path);
   generatingPath.value = pathKey;
+  
+  // 通知 Editor 组件当前正在生成的小节路径
+  emit("update:generating-path", path);
 
   // 通过完整path定位到章节（使用外部已定义的函数）
   const currentSection = getSectionByPath(props.outline, path);
@@ -436,6 +439,8 @@ const generateSection = async (path) => {
     
   } finally {
     generatingPath.value = null;
+    // 通知 Editor 组件生成结束
+    emit("update:generating-path", null);
   }
 };
 
