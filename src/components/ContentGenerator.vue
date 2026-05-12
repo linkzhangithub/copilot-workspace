@@ -375,8 +375,6 @@ const generateSection = async (path) => {
   };
 
   try {
-    console.log("开始生成内容，path:", path);
-    
     // 构建上下文信息
     const contextInfo = buildContextInfo(path, "first_generate");
     
