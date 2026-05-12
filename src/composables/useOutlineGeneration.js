@@ -11,7 +11,13 @@ import { ref } from "vue";
  * @returns {Object} - 大纲生成相关的状态和方法
  */
 export const useOutlineGeneration = (options) => {
-  const { emit, getProjectName, getOutline, setOutline, setHasGeneratedOutline } = options;
+  const {
+    emit,
+    getProjectName,
+    getOutline,
+    setOutline,
+    setHasGeneratedOutline,
+  } = options;
 
   const error = ref("");
   const loading = ref(false);
@@ -132,7 +138,7 @@ export const useOutlineGeneration = (options) => {
         "show-toast",
         "大纲生成完成！当前已是AI推荐的最优结构，如有需要可手动调整",
         "success",
-        3000
+        3000,
       );
     } catch (err) {
       console.error("请求失败:", err);

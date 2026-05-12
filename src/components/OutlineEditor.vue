@@ -1,45 +1,21 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
+import { ref, onMounted, onUnmounted, toRef } from "vue";
 import Icon from "./Icon.vue";
 import "../styles/outline-editor.css";
-import {
-  Edit3,
-  Trash2,
-  Plus,
-  Minus,
-  Sparkles,
-  Loader2,
-  GripVertical,
-} from "lucide-vue-next";
 import { cleanTitleNumber } from "../utils/stringUtils.js";
 import { deepClone } from "../utils/deepClone.js";
 import {
-  MAX_CHAPTERS,
-  MAX_SUBSECTIONS_PER_CHAPTER,
   MAX_TOTAL_SUBSECTIONS,
+  MAX_SUBSECTIONS_PER_CHAPTER,
 } from "../constants/limits.js";
+import { useOutlineEditor } from "../composables/useOutlineEditor.js";
 
 const props = defineProps({
-  outline: {
-    type: Array,
-    required: true,
-  },
-  hasGeneratedAllContent: {
-    type: Boolean,
-    default: false,
-  },
-  isGeneratingAll: {
-    type: Boolean,
-    default: false,
-  },
-  isPaused: {
-    type: Boolean,
-    default: false,
-  },
-  generateAllButtonState: {
-    type: String,
-    default: "ready",
-  },
+  outline: { type: Array, required: true },
+  hasGeneratedAllContent: { type: Boolean, default: false },
+  isGeneratingAll: { type: Boolean, default: false },
+  isPaused: { type: Boolean, default: false },
+  generateAllButtonState: { type: String, default: "ready" },
 });
 
 const emit = defineEmits([
@@ -49,131 +25,40 @@ const emit = defineEmits([
   "scroll-to-section",
 ]);
 
-// 计算文章结构状态
-const articleStructure = computed(() => {
-  const chapterCount = props.outline.length;
-  let totalSubsections = 0;
-  const chapterSubsectionCounts = props.outline.map((chapter) => {
-    const count = chapter.children?.length || 0;
-    totalSubsections += count;
-    return count;
-  });
-
-  return {
-    chapterCount,
-    totalSubsections,
-    chapterSubsectionCounts,
-    canAddChapter: chapterCount < MAX_CHAPTERS,
-    canAddSubsection: (chapterIndex) => {
-      const chapterSubCount = chapterSubsectionCounts[chapterIndex] || 0;
-      return (
-        chapterSubCount < MAX_SUBSECTIONS_PER_CHAPTER &&
-        totalSubsections < MAX_TOTAL_SUBSECTIONS
-      );
-    },
-    getSubsectionTooltip: (chapterIndex) => {
-      const chapterSubCount = chapterSubsectionCounts[chapterIndex] || 0;
-      if (totalSubsections >= MAX_TOTAL_SUBSECTIONS) {
-        return "文章结构已充实，建议专注内容创作";
-      }
-      if (chapterSubCount >= MAX_SUBSECTIONS_PER_CHAPTER) {
-        return "AI 建议的小节已完善，可手动调整";
-      }
-      return "";
-    },
-  };
-});
-
 const isMobile = ref(false);
 
-const editingPath = ref(null);
-const editingValue = ref("");
-const editInputRefs = ref({});
-const expandedState = ref({});
-const generatingPath = ref(null);
-
-// 拖拽相关状态
-const isDragging = ref(false);
-const dragIndex = ref(-1);
-const originalDragIndex = ref(-1); // 记录最初拖拽的元素
-const dragStartY = ref(0);
-const currentDragY = ref(0);
-const itemOffsets = ref({}); // 存储每个元素的偏移量
-const itemRefs = ref([]);
-const outlineListRef = ref(null);
-const localOutline = ref([]);
-
-const flatOutline = computed(() => {
-  const result = [];
-  const outlineToUse =
-    isDragging.value && localOutline.value.length > 0
-      ? localOutline.value
-      : props.outline;
-
-  const flatten = (items, path = [], level = 0, parentCollapsed = false) => {
-    items.forEach((item, index) => {
-      const currentPath = [...path, index];
-      const pathKey = getPathKey(currentPath);
-      const hasChildren = item.children && item.children.length > 0;
-      const isCollapsed = expandedState.value[pathKey] ?? false;
-
-      result.push({
-        ...item,
-        path: currentPath,
-        level,
-        hasChildren,
-        isCollapsed,
-      });
-
-      if (hasChildren && !isCollapsed && !parentCollapsed) {
-        flatten(item.children, currentPath, level + 1, isCollapsed);
-      }
-    });
-  };
-
-  flatten(outlineToUse);
-  return result;
+const {
+  editingPath,
+  editingValue,
+  editInputRefs,
+  expandedState,
+  generatingPath,
+  isDragging,
+  originalDragIndex,
+  itemRefs,
+  outlineListRef,
+  articleStructure,
+  flatOutline,
+  getPathKey,
+  toggleExpand,
+  expandAll,
+  collapseAll,
+  isAllExpanded,
+  getSectionByPath,
+  deleteSectionByPath,
+  addSection,
+  startEdit,
+  saveEdit,
+  cancelEdit,
+  handleDragStart,
+  handleDragMove,
+  handleDragEnd,
+  getItemStyle,
+  getDisplayNumber,
+} = useOutlineEditor({
+  outline: toRef(props, "outline"),
+  emit,
 });
-
-// 获取一级章节的索引映射
-const getLevel0Info = () => {
-  const level0Info = [];
-  flatOutline.value.forEach((item, idx) => {
-    if (item.level === 0) {
-      level0Info.push({
-        index: item.path[0],
-        flatIndex: idx,
-        item: item,
-      });
-    }
-  });
-  return level0Info;
-};
-
-const getPathKey = (path) => path.join("-");
-
-const toggleExpand = (path, event) => {
-  if (event) event.stopPropagation();
-  const key = getPathKey(path);
-  const current = expandedState.value[key] ?? true;
-  expandedState.value[key] = !current;
-};
-
-const getAllExistingTitles = () => {
-  const titles = new Set();
-  const collect = (items) => {
-    items.forEach((item) => {
-      if (item.title) {
-        titles.add(item.title.trim().toLowerCase());
-      }
-      if (item.children && item.children.length > 0) {
-        collect(item.children);
-      }
-    });
-  };
-  collect(props.outline);
-  return titles;
-};
 
 const addSubSectionByPath = async (path, event) => {
   event.stopPropagation();
@@ -189,7 +74,14 @@ const addSubSectionByPath = async (path, event) => {
 
   try {
     const currentSection = getSectionByPath(path);
-    const existingTitles = getAllExistingTitles();
+    const existingTitles = new Set();
+    const collect = (items) => {
+      items.forEach((item) => {
+        if (item.title) existingTitles.add(item.title.trim().toLowerCase());
+        if (item.children?.length) collect(item.children);
+      });
+    };
+    collect(props.outline);
 
     const response = await fetch("/api/ai/generate-subsections", {
       method: "POST",
@@ -201,10 +93,9 @@ const addSubSectionByPath = async (path, event) => {
     });
 
     const result = await response.json();
-
     let subSections = [];
 
-    if (result.success && result.data && result.data.length > 0) {
+    if (result.success && result.data?.length > 0) {
       subSections = result.data.filter((title) => {
         const normalized = (typeof title === "string" ? title : title.title)
           .trim()
@@ -213,7 +104,7 @@ const addSubSectionByPath = async (path, event) => {
       });
     }
 
-    if (subSections.length === 0 && result.data && result.data.length > 0) {
+    if (subSections.length === 0 && result.data?.length > 0) {
       subSections = result.data.map((title) =>
         typeof title === "string" ? title : title.title,
       );
@@ -225,11 +116,9 @@ const addSubSectionByPath = async (path, event) => {
       MAX_SUBSECTIONS_PER_CHAPTER -
       (articleStructure.value.chapterSubsectionCounts[path[0]] || 0);
     const maxToAdd = Math.min(availableSlots, slotsPerChapter);
-
     subSections = subSections.slice(0, maxToAdd);
 
     const timestamp = Date.now();
-
     for (let i = 0; i < subSections.length; i++) {
       const newOutline = deepClone(props.outline);
       let current = newOutline;
@@ -248,14 +137,12 @@ const addSubSectionByPath = async (path, event) => {
       });
 
       emit("update:outline", newOutline);
-
       if (i < subSections.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
     }
   } catch (err) {
     console.error("生成子章节失败:", err);
-
     const section = getSectionByPath(path);
     const fallbackSections = [
       `${section.title}概述`,
@@ -281,7 +168,6 @@ const addSubSectionByPath = async (path, event) => {
       });
 
       emit("update:outline", newOutline);
-
       if (i < fallbackSections.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
@@ -295,94 +181,12 @@ const scrollToSection = (path) => {
   emit("scroll-to-section", path);
 };
 
-const startEdit = (path) => {
-  editingPath.value = path;
-  editingValue.value = getSectionByPath(path).title;
-  nextTick(() => {
-    const key = getPathKey(path);
-    const input = editInputRefs.value[key];
-    if (input && input.focus) {
-      input.focus();
-      if (input.select) input.select();
-    }
-  });
-};
-
-const saveEdit = () => {
-  if (editingPath.value === null) return;
-  updateSectionByPath(editingPath.value, {
-    title: editingValue.value.trim(),
-  });
-  editingPath.value = null;
-};
-
-const cancelEdit = () => {
-  editingPath.value = null;
-};
-
-const getSectionByPath = (path) => {
-  let current = props.outline;
-  for (let i = 0; i < path.length - 1; i++) {
-    current = current[path[i]].children;
-  }
-  return current[path[path.length - 1]];
-};
-
-const updateSectionByPath = (path, updates) => {
-  const newOutline = deepClone(props.outline);
-  let current = newOutline;
-  for (let i = 0; i < path.length - 1; i++) {
-    current = current[path[i]].children;
-  }
-  current[path[path.length - 1]] = {
-    ...current[path[path.length - 1]],
-    ...updates,
-  };
-  emit("update:outline", newOutline);
-};
-
-const deleteSectionByPath = (path, event) => {
-  event.stopPropagation();
-  const newOutline = deepClone(props.outline);
-  let current = newOutline;
-  if (path.length === 1) {
-    const updated = newOutline.filter((_, i) => i !== path[0]);
-    emit("update:outline", updated);
+const toggleAllSections = () => {
+  if (isAllExpanded.value) {
+    collapseAll();
   } else {
-    for (let i = 0; i < path.length - 2; i++) {
-      current = current[path[i]].children;
-    }
-    const parent = current[path[path.length - 2]].children;
-    parent.splice(path[path.length - 1], 1);
-    emit("update:outline", newOutline);
+    expandAll();
   }
-};
-
-const handleGlobalClick = (e) => {
-  if (editingPath.value !== null) {
-    const key = getPathKey(editingPath.value);
-    const input = editInputRefs.value[key];
-    if (input && !input.contains(e.target)) {
-      cancelEdit();
-    }
-  }
-};
-
-const addSection = () => {
-  if (!articleStructure.value.canAddChapter) {
-    emit("show-toast", "文章结构已完善，建议专注内容创作", "warning", 3000);
-    return;
-  }
-
-  const newOutline = [
-    ...props.outline,
-    {
-      id: `section-${Date.now()}`,
-      title: "新章节",
-      children: [],
-    },
-  ];
-  emit("update:outline", newOutline);
 };
 
 const generateAllContent = () => {
@@ -403,162 +207,14 @@ const generateAllContent = () => {
   emit("generate-all-content");
 };
 
-const getDisplayNumber = (path) => path.map((p) => p + 1).join(".");
-
-// 收起所有展开的小节
-const collapseAll = () => {
-  const newState = {};
-  // 遍历所有章节，设置为折叠状态
-  props.outline.forEach((chapter, index) => {
-    const pathKey = getPathKey([index]);
-    newState[pathKey] = true; // true表示折叠
-  });
-  expandedState.value = newState;
-};
-
-// 深拷贝函数
-// ================= 拖拽核心逻辑 =================
-
-const handleDragStart = (path, event) => {
-  if (isDragging.value) return;
-
-  // 开始拖拽时，收起所有展开的小节
-  collapseAll();
-
-  dragIndex.value = path[0];
-  originalDragIndex.value = path[0]; // 记录最初拖拽的元素
-
-  // 初始化本地状态
-  localOutline.value = deepClone(props.outline);
-
-  // 记录初始位置
-  nextTick(() => {
-    dragStartY.value = event.clientY;
-    currentDragY.value = 0;
-    isDragging.value = true;
-  });
-
-  document.addEventListener("mousemove", handleDragMove);
-  document.addEventListener("mouseup", handleDragEnd);
-  event.preventDefault();
-  event.stopPropagation();
-};
-
-const handleDragMove = (event) => {
-  if (!isDragging.value || dragIndex.value === -1) return;
-
-  // 被拖拽元素始终跟随鼠标
-  const deltaY = event.clientY - dragStartY.value;
-
-  // 获取大纲区域的边界，限制拖拽范围
-  const listRect = outlineListRef.value?.getBoundingClientRect();
-  if (!listRect) return;
-
-  // 计算被拖拽元素可移动的范围
-  const items = document.querySelectorAll(".outline-item-wrapper-level-0");
-  if (items.length === 0) return;
-
-  // 计算总高度和边界
-  let totalHeight = 0;
-  items.forEach((item) => {
-    totalHeight += item.getBoundingClientRect().height + 10; // 10 是 gap
-  });
-  totalHeight -= 10; // 减去最后一个多余的 gap
-
-  const draggedItemHeight =
-    items[originalDragIndex.value]?.getBoundingClientRect().height || 56;
-  const minY = -originalDragIndex.value * (draggedItemHeight + 10);
-  const maxY =
-    (localOutline.value.length - 1 - originalDragIndex.value) *
-    (draggedItemHeight + 10);
-
-  currentDragY.value = Math.max(minY, Math.min(maxY, deltaY));
-
-  // 计算鼠标当前位置对应的章节索引
-  const avgItemHeight = totalHeight / localOutline.value.length;
-  const movedItems = Math.round(deltaY / avgItemHeight);
-  let targetPosition = originalDragIndex.value + movedItems;
-  targetPosition = Math.max(
-    0,
-    Math.min(targetPosition, localOutline.value.length - 1),
-  );
-
-  // 计算每个元素的偏移量，实现实时预览效果
-  const newOffsets = {};
-  const draggedHeight = draggedItemHeight + 10; // 包含 gap
-
-  for (let i = 0; i < localOutline.value.length; i++) {
-    if (i === originalDragIndex.value) {
-      // 被拖拽的元素不需要偏移（它跟随鼠标）
-      newOffsets[i] = 0;
-    } else {
-      // 其他元素根据位置关系添加偏移
-      if (targetPosition < originalDragIndex.value) {
-        // 向上拖拽
-        if (i >= targetPosition && i < originalDragIndex.value) {
-          // 在目标位置和原始位置之间的元素，向下偏移
-          newOffsets[i] = draggedHeight;
-        } else {
-          newOffsets[i] = 0;
-        }
-      } else if (targetPosition > originalDragIndex.value) {
-        // 向下拖拽
-        if (i > originalDragIndex.value && i <= targetPosition) {
-          // 在原始位置和目标位置之间的元素，向上偏移
-          newOffsets[i] = -draggedHeight;
-        } else {
-          newOffsets[i] = 0;
-        }
-      } else {
-        newOffsets[i] = 0;
-      }
+const handleGlobalClick = (e) => {
+  if (editingPath.value !== null) {
+    const key = getPathKey(editingPath.value);
+    const input = editInputRefs.value[key];
+    if (input && !input.contains(e.target)) {
+      cancelEdit();
     }
   }
-
-  itemOffsets.value = newOffsets;
-};
-
-const handleDragEnd = (event) => {
-  if (!isDragging.value) return;
-
-  document.removeEventListener("mousemove", handleDragMove);
-  document.removeEventListener("mouseup", handleDragEnd);
-
-  // 根据偏移量确定最终位置并交换元素
-  if (localOutline.value.length > 0) {
-    // 找到目标位置（通过偏移量判断）
-    let targetPosition = originalDragIndex.value;
-
-    // 找到第一个有偏移的元素
-    for (let i = 0; i < localOutline.value.length; i++) {
-      if (itemOffsets.value[i] !== 0) {
-        if (itemOffsets.value[i] > 0) {
-          // 元素向下偏移，说明被拖拽元素向上移动到了这个位置之前
-          targetPosition = i;
-          break;
-        } else if (itemOffsets.value[i] < 0) {
-          // 元素向上偏移，说明被拖拽元素向下移动到了这个位置
-          targetPosition = i;
-        }
-      }
-    }
-
-    // 执行交换
-    if (targetPosition !== originalDragIndex.value) {
-      const [removed] = localOutline.value.splice(originalDragIndex.value, 1);
-      localOutline.value.splice(targetPosition, 0, removed);
-    }
-
-    emit("update:outline", localOutline.value);
-  }
-
-  // 重置所有状态
-  isDragging.value = false;
-  dragIndex.value = -1;
-  originalDragIndex.value = -1;
-  currentDragY.value = 0;
-  itemOffsets.value = {};
-  localOutline.value = [];
 };
 
 const checkIsMobile = () => {
@@ -570,6 +226,13 @@ const checkIsMobile = () => {
       userAgent,
     );
   isMobile.value = isTouchDevice && isMobileUserAgent;
+};
+
+const isEditing = (path) => {
+  return (
+    editingPath.value &&
+    JSON.stringify(editingPath.value) === JSON.stringify(path)
+  );
 };
 
 onMounted(() => {
@@ -584,42 +247,20 @@ onUnmounted(() => {
   document.removeEventListener("mousemove", handleDragMove);
   document.removeEventListener("mouseup", handleDragEnd);
 });
-
-// 计算元素的偏移量样式
-const getItemStyle = (item, index) => {
-  if (!item || item.level !== 0) return {};
-
-  // 只有最初被拖拽的元素才有跟随鼠标的效果
-  if (isDragging.value && item.path[0] === originalDragIndex.value) {
-    return {
-      position: "relative",
-      zIndex: 1000,
-      transform: `translateY(${currentDragY.value}px) scale(1.02)`,
-      boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-      border: "2px solid var(--primary)",
-      backgroundColor: "var(--selected-bg)",
-      transition:
-        "box-shadow 0.15s ease, transform 0s, border 0.15s ease, background-color 0.15s ease",
-    };
-  }
-
-  // 其他元素根据偏移量平移
-  if (isDragging.value && itemOffsets.value[item.path[0]]) {
-    return {
-      transform: `translateY(${itemOffsets.value[item.path[0]]}px)`,
-    };
-  }
-
-  return {};
-};
 </script>
 
 <template>
   <div class="outline-editor" :class="{ 'is-mobile': isMobile }">
     <div class="outline-header">
       <div class="header-left">
-        <div class="header-icon">
-          <Icon name="List" :size="20" />
+        <div
+          class="header-icon"
+          :class="{ clickable: true }"
+          @click="toggleAllSections"
+          :title="isAllExpanded ? '收起所有章节' : '展开所有章节'"
+        >
+          <Icon v-if="isAllExpanded" name="ChevronUp" :size="20" />
+          <Icon v-else name="ChevronDown" :size="20" />
         </div>
         <span class="outline-title">文章大纲</span>
       </div>
@@ -646,63 +287,53 @@ const getItemStyle = (item, index) => {
             ]"
             :ref="(el) => (itemRefs[index] = el)"
             :style="getItemStyle(item, index)"
-            @click="item.hasChildren ? toggleExpand(item.path) : null"
+            @click="item.hasChildren ? toggleExpand(item.path, $event) : null"
           >
-            <div class="item-left">
-              <div class="outline-number">
-                {{ getDisplayNumber(item.path) }}
-              </div>
-              <button
-                v-if="item.hasChildren"
-                class="expand-btn"
-                :class="{ expanded: !item.isCollapsed }"
-              >
-                <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
-                <Icon v-else name="Minus" :size="16" />
-              </button>
+            <div class="outline-number">
+              {{ getDisplayNumber(item.path) }}
+            </div>
+            <button
+              v-if="item.hasChildren"
+              class="expand-btn"
+              :class="{ expanded: !item.isCollapsed }"
+            >
+              <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
+              <Icon v-else name="Minus" :size="16" />
+            </button>
 
-              <div
-                v-if="
-                  editingPath &&
-                  JSON.stringify(editingPath) === JSON.stringify(item.path)
-                "
-                class="edit-wrapper"
+            <div class="title-area">
+              <input
+                v-if="isEditing(item.path)"
+                v-model="editingValue"
+                @blur="saveEdit"
+                @keyup.enter="saveEdit"
+                @keyup.esc="cancelEdit"
+                class="title-input"
+                :ref="(el) => (editInputRefs[getPathKey(item.path)] = el)"
                 @click.stop
-              >
-                <input
-                  v-model="editingValue"
-                  @blur="saveEdit"
-                  @keyup.enter="saveEdit"
-                  @keyup.esc="cancelEdit"
-                  class="edit-input"
-                  :ref="(el) => (editInputRefs[getPathKey(item.path)] = el)"
-                  autofocus
-                />
-              </div>
-
-              <div v-else class="title-wrapper">
-                <span class="section-title">{{
-                  cleanTitleNumber(item.title)
-                }}</span>
-              </div>
+                autofocus
+              />
+              <span v-else class="section-title">{{
+                cleanTitleNumber(item.title)
+              }}</span>
             </div>
 
-            <div class="item-right" @click.stop>
+            <div class="item-actions" @click.stop>
               <div
-                class="drag-handle"
+                class="outline-drag-handle"
                 @mousedown="handleDragStart(item.path, $event)"
               >
                 <Icon name="GripVertical" :size="18" />
               </div>
               <div
-                class="action-btn edit-btn"
+                class="outline-action-btn outline-edit-btn"
                 @click="startEdit(item.path)"
                 title="编辑章节"
               >
                 <Icon name="Edit3" :size="18" />
               </div>
               <div
-                class="action-btn delete-btn"
+                class="outline-action-btn outline-delete-btn"
                 @click="deleteSectionByPath(item.path, $event)"
                 title="删除章节"
               >
@@ -747,62 +378,51 @@ const getItemStyle = (item, index) => {
             :class="{ clickable: item.hasChildren }"
             @click="item.hasChildren ? toggleExpand(item.path) : null"
           >
-            <div class="item-left">
-              <div class="outline-number">
-                {{ getDisplayNumber(item.path) }}
-              </div>
-              <button
-                v-if="item.hasChildren"
-                class="expand-btn"
-                :class="{ expanded: !item.isCollapsed }"
-              >
-                <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
-                <Icon v-else name="Minus" :size="16" />
-              </button>
+            <div class="outline-number">
+              {{ getDisplayNumber(item.path) }}
+            </div>
+            <button
+              v-if="item.hasChildren"
+              class="expand-btn"
+              :class="{ expanded: !item.isCollapsed }"
+            >
+              <Icon v-if="item.isCollapsed" name="Plus" :size="16" />
+              <Icon v-else name="Minus" :size="16" />
+            </button>
 
-              <div
-                v-if="
-                  editingPath &&
-                  JSON.stringify(editingPath) === JSON.stringify(item.path)
-                "
-                class="edit-wrapper"
-                @click.stop
-              >
-                <input
-                  v-model="editingValue"
-                  @blur="saveEdit"
-                  @keyup.enter="saveEdit"
-                  @keyup.esc="cancelEdit"
-                  class="edit-input"
-                  :ref="(el) => (editInputRefs[getPathKey(item.path)] = el)"
-                  autofocus
-                />
-              </div>
-
-              <div v-else class="title-wrapper">
-                <span class="section-title">{{
-                  cleanTitleNumber(item.title)
-                }}</span>
-              </div>
+            <div class="title-area" @click.stop>
+              <input
+                v-if="isEditing(item.path)"
+                v-model="editingValue"
+                @blur="saveEdit"
+                @keyup.enter="saveEdit"
+                @keyup.esc="cancelEdit"
+                class="title-input"
+                :ref="(el) => (editInputRefs[getPathKey(item.path)] = el)"
+                autofocus
+              />
+              <span v-else class="section-title">{{
+                cleanTitleNumber(item.title)
+              }}</span>
             </div>
 
-            <div class="item-right" @click.stop>
+            <div class="item-actions" @click.stop>
               <div
-                class="action-btn locate-btn"
+                class="outline-action-btn outline-locate-btn"
                 @click="scrollToSection(item.path)"
                 title="快速定位到内容"
               >
                 <Icon name="Navigation" :size="18" />
               </div>
               <div
-                class="action-btn edit-btn"
+                class="outline-action-btn outline-edit-btn"
                 @click="startEdit(item.path)"
                 title="编辑章节"
               >
                 <Icon name="Edit3" :size="18" />
               </div>
               <div
-                class="action-btn delete-btn"
+                class="outline-action-btn outline-delete-btn"
                 @click="deleteSectionByPath(item.path, $event)"
                 title="删除章节"
               >
@@ -854,3 +474,114 @@ const getItemStyle = (item, index) => {
     </button>
   </div>
 </template>
+
+<style scoped>
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.outline-item:hover .item-actions {
+  opacity: 1;
+}
+
+.outline-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  cursor: grab;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.outline-drag-handle:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+.outline-drag-handle:active {
+  cursor: grabbing;
+}
+
+.outline-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.outline-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+.outline-action-btn.outline-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.outline-editor.is-mobile .item-actions {
+  opacity: 1;
+}
+
+.outline-editor.is-mobile .outline-drag-handle:active,
+.outline-editor.is-mobile .outline-drag-handle:focus {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.outline-editor.is-mobile .outline-action-btn:active,
+.outline-editor.is-mobile .outline-action-btn:focus {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.outline-editor.is-mobile .outline-action-btn.outline-delete-btn:active,
+.outline-editor.is-mobile .outline-action-btn.outline-delete-btn:focus {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+@media (max-width: 768px) {
+  .item-actions {
+    opacity: 1;
+    gap: 4px;
+  }
+
+  .outline-drag-handle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .outline-action-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .outline-action-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .outline-drag-handle {
+    width: 32px;
+    height: 32px;
+  }
+}
+</style>

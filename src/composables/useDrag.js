@@ -88,7 +88,10 @@ export const useDrag = (options) => {
     const avgItemHeight = totalHeight / localOutline.length;
     const movedItems = Math.round(deltaY / avgItemHeight);
     let targetPosition = originalDragIndex.value + movedItems;
-    targetPosition = Math.max(0, Math.min(targetPosition, localOutline.length - 1));
+    targetPosition = Math.max(
+      0,
+      Math.min(targetPosition, localOutline.length - 1),
+    );
 
     const newOffsets = {};
     const draggedHeight = draggedItemHeight + 10;

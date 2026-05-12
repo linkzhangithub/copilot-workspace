@@ -44,7 +44,7 @@ router.post("/generate-subsections", async (req, res) => {
     console.log("正在生成子章节，主题:", topic);
     const subSections = await aiService.generateSubsections(
       topic,
-      existingTitles
+      existingTitles,
     );
     console.log("子章节生成成功:", subSections.length, "个小节");
 
@@ -80,7 +80,7 @@ router.post("/generate-content", async (req, res) => {
       context,
       (chunk) => {
         res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-      }
+      },
     );
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -90,9 +90,7 @@ router.post("/generate-content", async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: error.message });
     } else {
-      res.write(
-        `data: ${JSON.stringify({ error: error.message })}\n\n`
-      );
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
       res.end();
     }
   }
@@ -127,9 +125,7 @@ router.post("/optimize-content", async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: error.message });
     } else {
-      res.write(
-        `data: ${JSON.stringify({ error: error.message })}\n\n`
-      );
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
       res.end();
     }
   }
@@ -150,7 +146,11 @@ router.post("/quality-check-full", async (req, res) => {
     }
 
     console.log("正在进行智能质检，主题:", topic);
-    const result = await aiService.qualityCheckFull(topic, outline, fullMarkdown);
+    const result = await aiService.fullQualityCheck(
+      topic,
+      outline,
+      fullMarkdown,
+    );
     console.log("质检完成");
 
     res.json({ success: true, data: result });

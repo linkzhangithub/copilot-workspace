@@ -181,7 +181,12 @@ export const getOutlinePrompt = (topic) => {
  * @param {string} context - 上下文
  * @returns {Object} - 包含 system 和 user 消息的对象
  */
-export const getContentPrompt = (topic, chapterTitle, subsectionTitle, context) => {
+export const getContentPrompt = (
+  topic,
+  chapterTitle,
+  subsectionTitle,
+  context,
+) => {
   return {
     system: PROMPTS.CONTENT_GENERATION.system,
     user: `文章主题：${topic}

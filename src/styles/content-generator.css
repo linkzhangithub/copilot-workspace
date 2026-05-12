@@ -125,7 +125,7 @@
   margin-top: 8px;
 }
 
-.action-btn {
+.content-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,16 +141,16 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.action-btn:hover {
+.content-action-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.action-btn:active {
+.content-action-btn:active {
   transform: translateY(0);
 }
 
-.action-btn:disabled {
+.content-action-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
@@ -196,13 +196,13 @@
 }
 
 /* 扩写按钮 */
-.expand-btn {
+.content-expand-btn {
   border-color: #8b5cf6;
   color: #8b5cf6;
   background-color: transparent;
 }
 
-.expand-btn:hover {
+.content-expand-btn:hover {
   background-color: #8b5cf6;
   color: white;
   box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3);
@@ -421,7 +421,7 @@
     font-size: 16px;
   }
 
-  .action-btn {
+  .content-action-btn {
     padding: 8px 12px;
     font-size: 12px;
     gap: 4px;
@@ -518,12 +518,12 @@
     font-size: 15px;
   }
 
-  .action-btn {
+  .content-action-btn {
     padding: 7px 10px;
     font-size: 12px;
   }
 
-  .action-btn svg {
+  .content-action-btn svg {
     display: none;
   }
 
@@ -565,4 +565,3 @@
     margin-left: 20px;
   }
 }
-</style>

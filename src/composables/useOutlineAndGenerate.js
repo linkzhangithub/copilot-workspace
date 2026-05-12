@@ -100,7 +100,7 @@ export const useOutlineAndGenerate = (options) => {
         "show-toast",
         "大纲生成完成！当前已是AI推荐的最优结构，如有需要可手动调整",
         "success",
-        3000
+        3000,
       );
     } catch (err) {
       console.error("请求失败:", err);
@@ -201,27 +201,30 @@ export const useOutlineAndGenerate = (options) => {
                 "show-toast",
                 `正在生成第 ${i + 1} 章第 ${j + 1} 小节内容...`,
                 "info",
-                2000
+                2000,
               );
 
               try {
-                const response = await fetch("/api/ai/generate-content-simple", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    outline: getOutline(),
-                    path: [i, j],
-                    contextInfo: {
-                      articleTopic: getProjectName(),
-                      completedSections: [],
-                      usedKeyPoints: [],
-                      taskType: "first_generate",
-                      isFirstContent: i === 0 && j === 0,
-                      positionDescription: `第${i + 1}章第${j + 1}小节`,
-                      isSubsection: true,
-                    },
-                  }),
-                });
+                const response = await fetch(
+                  "/api/ai/generate-content-simple",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      outline: getOutline(),
+                      path: [i, j],
+                      contextInfo: {
+                        articleTopic: getProjectName(),
+                        completedSections: [],
+                        usedKeyPoints: [],
+                        taskType: "first_generate",
+                        isFirstContent: i === 0 && j === 0,
+                        positionDescription: `第${i + 1}章第${j + 1}小节`,
+                        isSubsection: true,
+                      },
+                    }),
+                  },
+                );
 
                 if (!response.ok) {
                   throw new Error(`HTTP error! status: ${response.status}`);
@@ -242,7 +245,7 @@ export const useOutlineAndGenerate = (options) => {
                     const currentOutline = getOutline();
                     currentOutline[i].children[j].content = content.substring(
                       0,
-                      k + 1
+                      k + 1,
                     );
                     setOutline([...currentOutline]);
                     if (k % 10 === 0) {
@@ -266,7 +269,7 @@ export const useOutlineAndGenerate = (options) => {
           "show-toast",
           "所有小节内容生成完成！可以进行智能质检了",
           "success",
-          5000
+          5000,
         );
       }
     } catch (err) {

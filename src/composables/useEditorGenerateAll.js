@@ -1,23 +1,7 @@
-import { ref, computed } from "vue";
+import { ref } from "vue";
 
-/**
- * 一键生成相关逻辑的 Composable
- * @param {Object} options - 配置选项
- * @param {Function} options.emit - Vue emit 函数
- * @param {Function} options.getProjectName - 获取项目名称的函数
- * @param {Function} options.getOutline - 获取大纲数据的函数
- * @param {Function} options.setOutline - 设置大纲数据的函数
- * @param {Function} options.getHasEmptySubsections - 获取是否有空白小节的函数
- * @returns {Object} - 一键生成相关的状态和方法
- */
-export const useGenerateAll = (options) => {
-  const {
-    emit,
-    getProjectName,
-    getOutline,
-    setOutline,
-    getHasEmptySubsections,
-  } = options;
+export const useEditorGenerateAll = (options) => {
+  const { outline, projectName, emit } = options;
 
   const isGeneratingAll = ref(false);
   const isPaused = ref(false);
@@ -26,47 +10,34 @@ export const useGenerateAll = (options) => {
   const totalGeneratingCount = ref(0);
   const hasGeneratedAllContent = ref(false);
 
-  /**
-   * 计算一键生成按钮的状态
-   */
-  const generateAllButtonState = computed(() => {
-    if (isGeneratingAll.value && !isPaused.value) {
-      return "generating";
-    } else if (isPaused.value) {
-      return "paused";
-    } else if (getHasEmptySubsections()) {
-      return "ready";
-    } else {
-      return "completed";
+  const hasEmptySubsections = () => {
+    for (const chapter of outline.value) {
+      if (chapter.children) {
+        for (const subsection of chapter.children) {
+          if (!subsection.content) {
+            return true;
+          }
+        }
+      }
     }
-  });
-
-  /**
-   * 计算是否有内容正在生成
-   */
-  const isGeneratingContent = computed(() => {
-    if (generatingSubsectionPath.value !== null) return true;
-    if (isGeneratingAll.value && !isPaused.value) return true;
     return false;
-  });
+  };
 
-  /**
-   * 一键生成所有内容
-   */
   const handleGenerateAllContent = async () => {
     if (isGeneratingAll.value && !isPaused.value) {
       isPaused.value = true;
-
       if (generatingSubsectionPath.value) {
         const [i, j] = generatingSubsectionPath.value;
-        const outline = getOutline();
-        if (outline[i] && outline[i].children && outline[i].children[j]) {
-          outline[i].children[j].content = "";
-          setOutline([...outline]);
+        if (
+          outline.value[i] &&
+          outline.value[i].children &&
+          outline.value[i].children[j]
+        ) {
+          outline.value[i].children[j].content = "";
+          outline.value = [...outline.value];
         }
         generatingSubsectionPath.value = null;
       }
-
       emit("show-toast", "已暂停生成，点击继续生成", "warning", 2000);
       return;
     }
@@ -79,9 +50,8 @@ export const useGenerateAll = (options) => {
       hasGeneratedAllContent.value = false;
 
       let emptyCount = 0;
-      const outline = getOutline();
-      for (let i = 0; i < outline.length; i++) {
-        const chapter = outline[i];
+      for (let i = 0; i < outline.value.length; i++) {
+        const chapter = outline.value[i];
         if (chapter.children && chapter.children.length > 0) {
           for (let j = 0; j < chapter.children.length; j++) {
             const subsection = chapter.children[j];
@@ -98,11 +68,10 @@ export const useGenerateAll = (options) => {
     }
 
     try {
-      const outline = getOutline();
-      for (let i = 0; i < outline.length; i++) {
+      for (let i = 0; i < outline.value.length; i++) {
         if (isPaused.value) return;
 
-        const chapter = outline[i];
+        const chapter = outline.value[i];
 
         if (chapter.children && chapter.children.length > 0) {
           for (let j = 0; j < chapter.children.length; j++) {
@@ -128,10 +97,10 @@ export const useGenerateAll = (options) => {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      outline: outline,
+                      outline: outline.value,
                       path: [i, j],
                       contextInfo: {
-                        articleTopic: getProjectName(),
+                        articleTopic: projectName.value,
                         completedSections: [],
                         usedKeyPoints: [],
                         taskType: "first_generate",
@@ -153,19 +122,16 @@ export const useGenerateAll = (options) => {
                   const content = result.data;
                   for (let k = 0; k < content.length; k++) {
                     if (isPaused.value) {
-                      const currentOutline = getOutline();
-                      currentOutline[i].children[j].content = "";
-                      setOutline([...currentOutline]);
+                      outline.value[i].children[j].content = "";
+                      outline.value = [...outline.value];
                       return;
                     }
 
-                    const currentOutline = getOutline();
-                    currentOutline[i].children[j].content = content.substring(
+                    outline.value[i].children[j].content = content.substring(
                       0,
                       k + 1,
                     );
-                    setOutline([...currentOutline]);
-
+                    outline.value = [...outline.value];
                     if (k % 10 === 0) {
                       await new Promise((resolve) => setTimeout(resolve, 20));
                     }
@@ -181,7 +147,7 @@ export const useGenerateAll = (options) => {
         }
       }
 
-      if (!isPaused.value && !getHasEmptySubsections()) {
+      if (!isPaused.value && !hasEmptySubsections()) {
         hasGeneratedAllContent.value = true;
         emit(
           "show-toast",
@@ -208,8 +174,6 @@ export const useGenerateAll = (options) => {
     currentGeneratingIndex,
     totalGeneratingCount,
     hasGeneratedAllContent,
-    generateAllButtonState,
-    isGeneratingContent,
     handleGenerateAllContent,
   };
 };
