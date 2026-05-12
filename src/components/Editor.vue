@@ -189,7 +189,6 @@ const loadQualityCheckRecord = () => {
       }
 
       lastQualityCheck.value = data;
-      console.log("已加载项目质检记录:", props.project.id, data);
     } else {
       // 没有记录时重置
       lastQualityCheck.value = {
@@ -228,11 +227,6 @@ const saveQualityCheckRecord = () => {
     localStorage.setItem(
       getQualityCheckStorageKey(),
       JSON.stringify(lastQualityCheck.value),
-    );
-    console.log(
-      "已保存项目质检记录:",
-      props.project.id,
-      lastQualityCheck.value,
     );
   } catch (e) {
     console.error("保存质检记录失败:", e);
@@ -1365,7 +1359,6 @@ const exportMarkdown = () => {
 
 // 编辑标题
 const startEditTitle = (e) => {
-  console.log("startEditTitle 被调用", e);
   e.stopPropagation(); // 阻止事件冒泡
   if (isEditingTitle.value) return;
   isEditingTitle.value = true;
@@ -1446,7 +1439,6 @@ onUnmounted(() => {
 watch(
   () => props.project.id,
   () => {
-    console.log("项目 ID 变化，重新加载质检记录:", props.project.id);
     loadQualityCheckRecord();
     // 重置状态
     showQualityCheck.value = false;
