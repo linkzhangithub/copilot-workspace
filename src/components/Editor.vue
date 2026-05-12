@@ -17,6 +17,10 @@ import {
   MAX_SUBSECTIONS_PER_CHAPTER,
   MAX_TOTAL_SUBSECTIONS,
 } from "../constants/limits.js";
+import {
+  generateFullMarkdown as generateMarkdown,
+  exportMarkdown as exportMarkdownFile,
+} from "../utils/exportUtils.js";
 
 const props = defineProps({
   project: {
@@ -237,7 +241,7 @@ const saveQualityCheckRecord = () => {
 const canShowQualityReport = computed(() => {
   if (!lastQualityCheck.value.results || !lastQualityCheck.value.scores)
     return false;
-  const currentContent = generateFullMarkdown();
+  const currentContent = generateMarkdown(props.project.name, outline.value);
   return currentContent === lastQualityCheck.value.articleContent;
 });
 
@@ -613,56 +617,6 @@ const handleGenerateAllContent = async () => {
   }
 };
 
-// 生成完整markdown内容（用于质检）- 和导出markdown完全一致
-const generateFullMarkdown = () => {
-  let markdown = "";
-
-  if (props.project.name) {
-    markdown += `# ${props.project.name}\n\n`;
-  }
-
-  const appendContent = (items, parentLevel = 0, parentIndex = []) => {
-    items.forEach((item, index) => {
-      const currentIndex = [...parentIndex, index];
-      let heading = "";
-      let title = "";
-
-      if (currentIndex.length === 1) {
-        // 主标题
-        const num = chineseNumbers[index] || index + 1;
-        heading = "##";
-        title = `${num}、${item.title}`;
-      } else if (currentIndex.length === 2) {
-        // 子标题
-        heading = "###";
-        title = `(${index + 1}) ${item.title}`;
-      } else {
-        // 更深层级（如果有的话）
-        heading = "#".repeat(currentIndex.length + 1);
-        title = item.title;
-      }
-
-      markdown += `${heading} ${title}\n\n`;
-
-      // 只输出纯内容，不重复标题
-      if (item.content) {
-        let content = cleanDuplicateTitle(item.content, item.title);
-        if (content) {
-          markdown += `${content}\n\n`;
-        }
-      }
-
-      if (item.children && item.children.length > 0) {
-        appendContent(item.children, parentLevel + 1, currentIndex);
-      }
-    });
-  };
-
-  appendContent(outline.value);
-
-  return markdown;
-};
-
 // 直接显示上次的质检结果
 const showPreviousQualityCheck = () => {
   if (!lastQualityCheck.value.results || !lastQualityCheck.value.scores) return;
@@ -879,7 +833,7 @@ const startQualityCheck = async () => {
   qualityCheckCompleted.value = false;
 
   // 如果内容未变且有结果，直接显示
-  const fullMarkdown = generateFullMarkdown();
+  const fullMarkdown = generateMarkdown(props.project.name, outline.value);
 
   if (
     fullMarkdown === lastQualityCheck.value.articleContent &&
@@ -1232,129 +1186,9 @@ const closeQualityCheck = () => {
   currentStep.value = -1;
 };
 
-// 中文数字转换
-// 清理内容中重复的标题
-const cleanDuplicateTitle = (content, title) => {
-  if (!content || !title) return content;
-
-  let cleaned = content.trim();
-
-  // 准备标题的各种变体（去掉标点、空格等）用于匹配
-  const cleanForMatch = (text) => {
-    return text.replace(/[、\(\)\[\]（）【】\.\,，。\s\-]/g, "").toLowerCase();
-  };
-
-  const targetTitleClean = cleanForMatch(title);
-
-  // 按行分割，查找并移除匹配的标题行（只检查前5行，避免误删正文）
-  const lines = cleaned.split("\n");
-  const filteredLines = [];
-  let removedCount = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineTrim = line.trim();
-    let shouldSkip = false;
-
-    // 只在前5行检查标题
-    if (i < 5 && removedCount < 2) {
-      // 检查是否是markdown标题
-      const isMarkdownTitle = lineTrim.startsWith("#");
-      const lineContent = isMarkdownTitle
-        ? lineTrim.replace(/^#+\s*/, "").trim()
-        : lineTrim;
-      const lineClean = cleanForMatch(lineContent);
-
-      // 检查是否匹配（包括部分匹配）
-      if (lineClean.length > 0 && targetTitleClean.length > 0) {
-        if (
-          lineClean.includes(targetTitleClean) ||
-          targetTitleClean.includes(lineClean)
-        ) {
-          shouldSkip = true;
-        }
-
-        // 检查是否有部分关键词匹配（比如"概述"匹配"AI写作助手概述"）
-        if (!shouldSkip) {
-          const titleWords = title.split(/[、\s]+/);
-          for (const word of titleWords) {
-            if (word.length >= 2 && lineClean.includes(cleanForMatch(word))) {
-              shouldSkip = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    if (shouldSkip) {
-      removedCount++;
-      continue;
-    }
-
-    filteredLines.push(line);
-  }
-
-  cleaned = filteredLines.join("\n").trim();
-
-  return cleaned;
-};
-
 // 导出 Markdown
 const exportMarkdown = () => {
-  let markdown = "";
-
-  if (props.project.name) {
-    markdown += `# ${props.project.name}\n\n`;
-  }
-
-  const appendContent = (items, parentLevel = 0, parentIndex = []) => {
-    items.forEach((item, index) => {
-      const currentIndex = [...parentIndex, index];
-      let heading = "";
-      let title = "";
-
-      if (currentIndex.length === 1) {
-        // 主标题
-        const num = chineseNumbers[index] || index + 1;
-        heading = "##";
-        title = `${num}、${item.title}`;
-      } else if (currentIndex.length === 2) {
-        // 子标题
-        heading = "###";
-        title = `(${index + 1}) ${item.title}`;
-      } else {
-        // 更深层级（如果有的话）
-        heading = "#".repeat(currentIndex.length + 1);
-        title = item.title;
-      }
-
-      markdown += `${heading} ${title}\n\n`;
-
-      // 只输出纯内容，不重复标题
-      if (item.content) {
-        // 清理内容中重复的标题
-        let content = cleanDuplicateTitle(item.content, item.title);
-        if (content) {
-          markdown += `${content}\n\n`;
-        }
-      }
-
-      if (item.children && item.children.length > 0) {
-        appendContent(item.children, parentLevel + 1, currentIndex);
-      }
-    });
-  };
-
-  appendContent(outline.value);
-
-  const blob = new Blob([markdown], { type: "text/markdown" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${props.project.name || "document"}.md`;
-  a.click();
-  URL.revokeObjectURL(url);
+  exportMarkdownFile(props.project.name, outline.value);
 };
 
 // 编辑标题

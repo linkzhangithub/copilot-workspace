@@ -7,30 +7,63 @@ import { chineseNumbers } from "../constants/chineseNumbers.js";
  * @returns {string} - 清理后的内容
  */
 const cleanDuplicateTitle = (content, title) => {
-  if (!content) return content;
+  if (!content || !title) return content;
 
-  const titlePatterns = [
-    new RegExp(`^#+\\s*${escapeRegExp(title)}\\s*\\n`, "i"),
-    new RegExp(`^${escapeRegExp(title)}\\s*\\n`, "i"),
-    new RegExp(`^\\d+\\.\\s*${escapeRegExp(title)}\\s*\\n`, "i"),
-    new RegExp(`^[一二三四五六七八九十]+、\\s*${escapeRegExp(title)}\\s*\\n`, "i"),
-  ];
+  let cleaned = content.trim();
 
-  let cleanedContent = content;
-  for (const pattern of titlePatterns) {
-    cleanedContent = cleanedContent.replace(pattern, "");
+  const cleanForMatch = (text) => {
+    return text.replace(/[、\(\)\[\]（）【】\.\,，。\s\-]/g, "").toLowerCase();
+  };
+
+  const targetTitleClean = cleanForMatch(title);
+
+  const lines = cleaned.split("\n");
+  const filteredLines = [];
+  let removedCount = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineTrim = line.trim();
+    let shouldSkip = false;
+
+    if (i < 5 && removedCount < 2) {
+      const isMarkdownTitle = lineTrim.startsWith("#");
+      const lineContent = isMarkdownTitle
+        ? lineTrim.replace(/^#+\s*/, "").trim()
+        : lineTrim;
+      const lineClean = cleanForMatch(lineContent);
+
+      if (lineClean.length > 0 && targetTitleClean.length > 0) {
+        if (
+          lineClean.includes(targetTitleClean) ||
+          targetTitleClean.includes(lineClean)
+        ) {
+          shouldSkip = true;
+        }
+
+        if (!shouldSkip) {
+          const titleWords = title.split(/[、\s]+/);
+          for (const word of titleWords) {
+            if (word.length >= 2 && lineClean.includes(cleanForMatch(word))) {
+              shouldSkip = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (shouldSkip) {
+      removedCount++;
+      continue;
+    }
+
+    filteredLines.push(line);
   }
 
-  return cleanedContent.trim();
-};
+  cleaned = filteredLines.join("\n").trim();
 
-/**
- * 转义正則表達式特殊字符
- * @param {string} string - 需要转义的字符串
- * @returns {string} - 转义后的字符串
- */
-const escapeRegExp = (string) => {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return cleaned;
 };
 
 /**
