@@ -6,16 +6,12 @@ import Icon from "./Icon.vue";
 import {
   Sparkles,
   Loader2,
-  Edit3,
   CheckSquare,
   X,
-  List,
-  FileText,
-  GitBranch,
   CheckCircle,
-  MessageSquare,
   ArrowUp,
 } from "lucide-vue-next";
+import { chineseNumbers } from "../constants/chineseNumbers.js";
 
 const props = defineProps({
   project: {
@@ -1241,19 +1237,6 @@ const closeQualityCheck = () => {
 };
 
 // 中文数字转换
-const chineseNumbers = [
-  "一",
-  "二",
-  "三",
-  "四",
-  "五",
-  "六",
-  "七",
-  "八",
-  "九",
-  "十",
-];
-
 // 清理内容中重复的标题
 const cleanDuplicateTitle = (content, title) => {
   if (!content || !title) return content;

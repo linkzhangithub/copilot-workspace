@@ -7,10 +7,11 @@ import {
   Plus,
   Minus,
   Sparkles,
-  ChevronDown,
   Loader2,
   GripVertical,
 } from "lucide-vue-next";
+import { cleanTitleNumber } from "../utils/stringUtils.js";
+import { deepClone } from "../utils/deepClone.js";
 
 const props = defineProps({
   outline: {
@@ -339,12 +340,6 @@ const getSectionByPath = (path) => {
 };
 
 const updateSectionByPath = (path, updates) => {
-  const deepClone = (arr) => {
-    return arr.map((item) => ({
-      ...item,
-      children: item.children ? deepClone(item.children) : [],
-    }));
-  };
   const newOutline = deepClone(props.outline);
   let current = newOutline;
   for (let i = 0; i < path.length - 1; i++) {
@@ -425,11 +420,6 @@ const generateAllContent = () => {
   emit("generate-all-content");
 };
 
-const cleanTitle = (title) => {
-  if (!title) return title;
-  return title.replace(/^#+\s*/, "").trim();
-};
-
 const getDisplayNumber = (path) => path.map((p) => p + 1).join(".");
 
 // 收起所有展开的小节
@@ -444,13 +434,6 @@ const collapseAll = () => {
 };
 
 // 深拷贝函数
-const deepClone = (arr) => {
-  return arr.map((item) => ({
-    ...item,
-    children: item.children ? deepClone(item.children) : [],
-  }));
-};
-
 // ================= 拖拽核心逻辑 =================
 
 const handleDragStart = (path, event) => {
@@ -715,7 +698,9 @@ const getItemStyle = (item, index) => {
               </div>
 
               <div v-else class="title-wrapper">
-                <span class="section-title">{{ cleanTitle(item.title) }}</span>
+                <span class="section-title">{{
+                  cleanTitleNumber(item.title)
+                }}</span>
               </div>
             </div>
 
@@ -812,7 +797,9 @@ const getItemStyle = (item, index) => {
               </div>
 
               <div v-else class="title-wrapper">
-                <span class="section-title">{{ cleanTitle(item.title) }}</span>
+                <span class="section-title">{{
+                  cleanTitleNumber(item.title)
+                }}</span>
               </div>
             </div>
 

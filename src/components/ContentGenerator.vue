@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, nextTick, watch } from "vue";
 import Icon from "./Icon.vue";
 import { Play, Loader2, Sparkles, ZoomIn, ZoomOut, RotateCcw, FileText } from "lucide-vue-next";
+import { chineseNumbers } from "../constants/chineseNumbers.js";
+import { cleanTitleMarkdown } from "../utils/stringUtils.js";
+import { deepClone } from "../utils/deepClone.js";
 
 const props = defineProps({
   outline: {
@@ -169,11 +172,6 @@ const updateSectionByPath = (path, content) => {
 };
 
 // 清理标题中的 markdown 标记
-const cleanTitle = (title) => {
-  if (!title) return title;
-  return title.replace(/^#+\s*/, "").trim();
-};
-
 // 清理内容中重复的标题 - 温和的清理
 const cleanDuplicateTitleInContent = (content, title) => {
   if (!content) return content;
@@ -233,8 +231,6 @@ const calculateSimilarity = (str1, str2) => {
 };
 
 // 获取显示编号
-const chineseNumbers = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
-
 const getDisplayNumber = (path) => {
   if (path.length === 1) {
     return chineseNumbers[path[0]] + "、";
@@ -635,13 +631,13 @@ watch(() => props.outline, () => {
               v-if="item.level === 0" 
               class="main-title"
             >
-              {{ cleanTitle(item.title) }}
+              {{ cleanTitleMarkdown(item.title) }}
             </h3>
             <h4 
               v-else 
               class="subsection-title"
             >
-              {{ cleanTitle(item.title) }}
+              {{ cleanTitleMarkdown(item.title) }}
             </h4>
           </div>
         <div v-if="item.level > 0" class="section-actions">
