@@ -472,6 +472,8 @@ const handleGenerateAllContent = async () => {
         outline.value[i].children[j].content = "";
         outline.value = [...outline.value];
       }
+      // 重置生成路径，允许质检
+      generatingSubsectionPath.value = null;
     }
 
     emit("show-toast", "已暂停生成，点击继续生成", "warning", 2000);
