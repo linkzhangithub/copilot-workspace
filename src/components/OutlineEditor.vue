@@ -93,8 +93,10 @@ const generatingPath = ref(null);
 // 拖拽相关状态
 const isDragging = ref(false);
 const dragIndex = ref(-1);
+const originalDragIndex = ref(-1); // 记录最初拖拽的元素
 const dragStartY = ref(0);
 const currentDragY = ref(0);
+const itemOffsets = ref({}); // 存储每个元素的偏移量
 const itemRefs = ref([]);
 const outlineListRef = ref(null);
 const localOutline = ref([]);
@@ -458,6 +460,7 @@ const handleDragStart = (path, event) => {
   collapseAll();
 
   dragIndex.value = path[0];
+  originalDragIndex.value = path[0]; // 记录最初拖拽的元素
 
   // 初始化本地状态
   localOutline.value = deepClone(props.outline);
@@ -478,37 +481,75 @@ const handleDragStart = (path, event) => {
 const handleDragMove = (event) => {
   if (!isDragging.value || dragIndex.value === -1) return;
 
+  // 被拖拽元素始终跟随鼠标
   const deltaY = event.clientY - dragStartY.value;
 
-  // 限制拖拽范围（视觉上不能超出大纲区域）
-  const itemHeight = 66; // 预估每个元素的高度 + gap
-  const maxDragUp = -dragIndex.value * itemHeight; // 最大向上拖拽距离
-  const maxDragDown =
-    (localOutline.value.length - 1 - dragIndex.value) * itemHeight; // 最大向下拖拽距离
-  currentDragY.value = Math.max(maxDragUp, Math.min(maxDragDown, deltaY));
+  // 获取大纲区域的边界，限制拖拽范围
+  const listRect = outlineListRef.value?.getBoundingClientRect();
+  if (!listRect) return;
 
-  // 计算应该交换到的位置
-  const movedItems = Math.round(deltaY / itemHeight);
-  let targetPosition = dragIndex.value + movedItems;
+  // 计算被拖拽元素可移动的范围
+  const items = document.querySelectorAll(".outline-item-wrapper-level-0");
+  if (items.length === 0) return;
 
-  // 限制范围
+  // 计算总高度和边界
+  let totalHeight = 0;
+  items.forEach((item) => {
+    totalHeight += item.getBoundingClientRect().height + 10; // 10 是 gap
+  });
+  totalHeight -= 10; // 减去最后一个多余的 gap
+
+  const draggedItemHeight =
+    items[originalDragIndex.value]?.getBoundingClientRect().height || 56;
+  const minY = -originalDragIndex.value * (draggedItemHeight + 10);
+  const maxY =
+    (localOutline.value.length - 1 - originalDragIndex.value) *
+    (draggedItemHeight + 10);
+
+  currentDragY.value = Math.max(minY, Math.min(maxY, deltaY));
+
+  // 计算鼠标当前位置对应的章节索引
+  const avgItemHeight = totalHeight / localOutline.value.length;
+  const movedItems = Math.round(deltaY / avgItemHeight);
+  let targetPosition = originalDragIndex.value + movedItems;
   targetPosition = Math.max(
     0,
     Math.min(targetPosition, localOutline.value.length - 1),
   );
 
-  // 如果位置变化，立即交换本地状态
-  if (targetPosition !== dragIndex.value) {
-    const [removed] = localOutline.value.splice(dragIndex.value, 1);
-    localOutline.value.splice(targetPosition, 0, removed);
+  // 计算每个元素的偏移量，实现实时预览效果
+  const newOffsets = {};
+  const draggedHeight = draggedItemHeight + 10; // 包含 gap
 
-    // 更新拖拽索引
-    dragIndex.value = targetPosition;
-
-    // 重置拖拽起点，避免累积误差
-    dragStartY.value = event.clientY;
-    currentDragY.value = 0;
+  for (let i = 0; i < localOutline.value.length; i++) {
+    if (i === originalDragIndex.value) {
+      // 被拖拽的元素不需要偏移（它跟随鼠标）
+      newOffsets[i] = 0;
+    } else {
+      // 其他元素根据位置关系添加偏移
+      if (targetPosition < originalDragIndex.value) {
+        // 向上拖拽
+        if (i >= targetPosition && i < originalDragIndex.value) {
+          // 在目标位置和原始位置之间的元素，向下偏移
+          newOffsets[i] = draggedHeight;
+        } else {
+          newOffsets[i] = 0;
+        }
+      } else if (targetPosition > originalDragIndex.value) {
+        // 向下拖拽
+        if (i > originalDragIndex.value && i <= targetPosition) {
+          // 在原始位置和目标位置之间的元素，向上偏移
+          newOffsets[i] = -draggedHeight;
+        } else {
+          newOffsets[i] = 0;
+        }
+      } else {
+        newOffsets[i] = 0;
+      }
+    }
   }
+
+  itemOffsets.value = newOffsets;
 };
 
 const handleDragEnd = (event) => {
@@ -517,15 +558,40 @@ const handleDragEnd = (event) => {
   document.removeEventListener("mousemove", handleDragMove);
   document.removeEventListener("mouseup", handleDragEnd);
 
-  // 提交最终结果
+  // 根据偏移量确定最终位置并交换元素
   if (localOutline.value.length > 0) {
+    // 找到目标位置（通过偏移量判断）
+    let targetPosition = originalDragIndex.value;
+
+    // 找到第一个有偏移的元素
+    for (let i = 0; i < localOutline.value.length; i++) {
+      if (itemOffsets.value[i] !== 0) {
+        if (itemOffsets.value[i] > 0) {
+          // 元素向下偏移，说明被拖拽元素向上移动到了这个位置之前
+          targetPosition = i;
+          break;
+        } else if (itemOffsets.value[i] < 0) {
+          // 元素向上偏移，说明被拖拽元素向下移动到了这个位置
+          targetPosition = i;
+        }
+      }
+    }
+
+    // 执行交换
+    if (targetPosition !== originalDragIndex.value) {
+      const [removed] = localOutline.value.splice(originalDragIndex.value, 1);
+      localOutline.value.splice(targetPosition, 0, removed);
+    }
+
     emit("update:outline", localOutline.value);
   }
 
   // 重置所有状态
   isDragging.value = false;
   dragIndex.value = -1;
+  originalDragIndex.value = -1;
   currentDragY.value = 0;
+  itemOffsets.value = {};
   localOutline.value = [];
 };
 
@@ -557,14 +623,24 @@ onUnmounted(() => {
 const getItemStyle = (item, index) => {
   if (!item || item.level !== 0) return {};
 
-  // 只有当前正在拖拽的元素才有跟随鼠标的效果
-  if (isDragging.value && item.path[0] === dragIndex.value) {
+  // 只有最初被拖拽的元素才有跟随鼠标的效果
+  if (isDragging.value && item.path[0] === originalDragIndex.value) {
     return {
       position: "relative",
       zIndex: 1000,
       transform: `translateY(${currentDragY.value}px) scale(1.02)`,
       boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-      transition: "box-shadow 0.15s ease, transform 0s",
+      border: "2px solid var(--primary)",
+      backgroundColor: "var(--selected-bg)",
+      transition:
+        "box-shadow 0.15s ease, transform 0s, border 0.15s ease, background-color 0.15s ease",
+    };
+  }
+
+  // 其他元素根据偏移量平移
+  if (isDragging.value && itemOffsets.value[item.path[0]]) {
+    return {
+      transform: `translateY(${itemOffsets.value[item.path[0]]}px)`,
     };
   }
 
@@ -599,7 +675,7 @@ const getItemStyle = (item, index) => {
             :class="[
               { clickable: item.hasChildren },
               {
-                'is-dragging': isDragging && item.path[0] === dragIndex,
+                'is-dragging': isDragging && item.path[0] === originalDragIndex,
               },
             ]"
             :ref="(el) => (itemRefs[index] = el)"
@@ -867,7 +943,7 @@ const getItemStyle = (item, index) => {
   align-items: center;
   gap: 10px;
   position: relative;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .outline-item-wrapper-level-1 {
