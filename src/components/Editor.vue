@@ -1264,7 +1264,6 @@ watch(
       />
     </div>
 
-
     <!-- 智能质检弹窗 -->
     <QualityCheckModal
       ref="qualityCheckModalRef"
@@ -1273,7 +1272,9 @@ watch(
       :outline="outline"
       :isGeneratingContent="isGeneratingContent"
       :fullMarkdown="generateMarkdown(project.name, outline)"
-      @show-toast="emit('show-toast', $event.message, $event.type, $event.duration)"
+      @show-toast="
+        (message, type, duration) => emit('show-toast', message, type, duration)
+      "
     />
 
     <!-- 回到顶部按钮 -->
