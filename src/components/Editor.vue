@@ -12,6 +12,11 @@ import {
   ArrowUp,
 } from "lucide-vue-next";
 import { chineseNumbers } from "../constants/chineseNumbers.js";
+import {
+  MAX_CHAPTERS,
+  MAX_SUBSECTIONS_PER_CHAPTER,
+  MAX_TOTAL_SUBSECTIONS,
+} from "../constants/limits.js";
 
 const props = defineProps({
   project: {
@@ -21,11 +26,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update-project", "show-toast"]);
-
-// 章节限制常量
-const MAX_CHAPTERS = 8;
-const MAX_SUBSECTIONS_PER_CHAPTER = 10;
-const MAX_TOTAL_SUBSECTIONS = 50;
 
 // 状态
 const outline = ref([]);
