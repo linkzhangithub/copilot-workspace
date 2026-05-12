@@ -156,12 +156,6 @@ const getSectionByPath = (outline, path) => {
 
 // 通过path更新章节内容
 const updateSectionByPath = (path, content) => {
-  const deepClone = (arr) => {
-    return arr.map(item => ({
-      ...item,
-      children: item.children ? deepClone(item.children) : [],
-    }));
-  };
   const newOutline = deepClone(props.outline);
   let current = newOutline;
   for (let i = 0; i < path.length - 1; i++) {

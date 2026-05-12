@@ -230,12 +230,6 @@ const addSubSectionByPath = async (path, event) => {
     const timestamp = Date.now();
 
     for (let i = 0; i < subSections.length; i++) {
-      const deepClone = (arr) => {
-        return arr.map((item) => ({
-          ...item,
-          children: item.children ? deepClone(item.children) : [],
-        }));
-      };
       const newOutline = deepClone(props.outline);
       let current = newOutline;
       for (let j = 0; j < path.length - 1; j++) {
@@ -270,12 +264,6 @@ const addSubSectionByPath = async (path, event) => {
     const timestamp = Date.now();
 
     for (let i = 0; i < fallbackSections.length; i++) {
-      const deepClone = (arr) => {
-        return arr.map((item) => ({
-          ...item,
-          children: item.children ? deepClone(item.children) : [],
-        }));
-      };
       const newOutline = deepClone(props.outline);
       let current = newOutline;
       for (let j = 0; j < path.length - 1; j++) {
@@ -354,12 +342,6 @@ const updateSectionByPath = (path, updates) => {
 
 const deleteSectionByPath = (path, event) => {
   event.stopPropagation();
-  const deepClone = (arr) => {
-    return arr.map((item) => ({
-      ...item,
-      children: item.children ? deepClone(item.children) : [],
-    }));
-  };
   const newOutline = deepClone(props.outline);
   let current = newOutline;
   if (path.length === 1) {
