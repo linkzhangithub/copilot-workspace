@@ -27,6 +27,7 @@ export const useOutlineEditor = (options) => {
   const localOutline = ref([]);
   const animatingIndex = ref(-1);
   const animatingY = ref(0);
+  const isClearing = ref(false);
 
   const articleStructure = computed(() => {
     const chapterCount = outline.value.length;
@@ -342,16 +343,14 @@ export const useOutlineEditor = (options) => {
         if (draggedItemEl && targetItemEl) {
           const draggedRect = draggedItemEl.getBoundingClientRect();
           const targetRect = targetItemEl.getBoundingClientRect();
-          // 目标位置相对于当前位置的 Y 偏移
-          const targetY = currentDragY.value + (targetRect.top - draggedRect.top);
+          // 目标 translateY：让被拖项出现在目标项的原始位置
+          const targetY = targetRect.top - draggedRect.top;
 
           // 进入动画阶段：拖拽项平滑移到目标位置
           isDragging.value = false;
           isAnimating.value = true;
           animatingIndex.value = originalDragIndex.value;
           animatingY.value = targetY;
-          // 其他项也平滑归位
-          itemOffsets.value = {};
 
           // 等动画完成后更新数据
           setTimeout(() => {
@@ -359,14 +358,22 @@ export const useOutlineEditor = (options) => {
             localOutline.value.splice(targetPosition, 0, removed);
             emit("update:outline", localOutline.value);
 
-            isAnimating.value = false;
-            animatingIndex.value = -1;
-            animatingY.value = 0;
-            dragIndex.value = -1;
-            originalDragIndex.value = -1;
-            currentDragY.value = 0;
-            itemOffsets.value = {};
-            localOutline.value = [];
+            // 第一步：禁用 CSS 过渡，移除所有 transform
+            isClearing.value = true;
+
+            nextTick(() => {
+              // 第二步：DOM 已更新为新顺序 + 无 transform + 无过渡
+              // 现在安全地清理所有状态，恢复 CSS 过渡
+              isClearing.value = false;
+              isAnimating.value = false;
+              animatingIndex.value = -1;
+              animatingY.value = 0;
+              dragIndex.value = -1;
+              originalDragIndex.value = -1;
+              currentDragY.value = 0;
+              itemOffsets.value = {};
+              localOutline.value = [];
+            });
           }, 300);
           return;
         }
@@ -391,6 +398,10 @@ export const useOutlineEditor = (options) => {
 
   const getItemStyle = (item) => {
     if (!item || item.level !== 0) return {};
+    // 清理阶段：禁用过渡，防止闪回
+    if (isClearing.value) {
+      return { transition: "transform 0s" };
+    }
     // 拖拽中：跟随鼠标，无 transform 过渡
     if (isDragging.value && item.path[0] === originalDragIndex.value) {
       return {
@@ -416,8 +427,8 @@ export const useOutlineEditor = (options) => {
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       };
     }
-    // 拖拽中：其他项偏移
-    if (isDragging.value && itemOffsets.value[item.path[0]]) {
+    // 拖拽中或落位动画中：其他项保持偏移
+    if ((isDragging.value || isAnimating.value) && itemOffsets.value[item.path[0]]) {
       return {
         transform: `translateY(${itemOffsets.value[item.path[0]]}px)`,
         transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
