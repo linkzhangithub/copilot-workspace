@@ -294,6 +294,12 @@ onUnmounted(() => {
             :style="getItemStyle(item, index)"
             @click="item.hasChildren ? toggleExpand(item.path, $event) : null"
           >
+            <div
+              class="outline-drag-handle"
+              @mousedown="handleDragStart(item.path, $event)"
+            >
+              <Icon name="GripVertical" :size="18" />
+            </div>
             <div class="outline-number">
               {{ getDisplayNumber(item.path) }}
             </div>
@@ -324,12 +330,6 @@ onUnmounted(() => {
             </div>
 
             <div class="item-actions" @click.stop>
-              <div
-                class="outline-drag-handle"
-                @mousedown="handleDragStart(item.path, $event)"
-              >
-                <Icon name="GripVertical" :size="18" />
-              </div>
               <div
                 class="outline-action-btn outline-edit-btn"
                 @click="startEdit(item.path)"

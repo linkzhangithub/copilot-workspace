@@ -80,7 +80,7 @@
 .outline-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   padding: 12px 14px;
   border-radius: 10px;
   background-color: var(--bg-sidebar);
@@ -114,14 +114,14 @@
 }
 
 .outline-number {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
   flex-shrink: 0;
-  min-width: 32px;
+  min-width: 20px;
 }
 
 .outline-item-wrapper-level-1 .outline-number {
@@ -159,6 +159,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
+  margin-left: 6px;
 }
 
 .section-title {
@@ -328,12 +329,12 @@
 @media (max-width: 768px) {
   .outline-item {
     padding: 10px 12px;
-    gap: 10px;
+    gap: 0;
   }
 
   .outline-number {
     font-size: 13px;
-    min-width: 28px;
+    min-width: 20px;
   }
 
   .expand-btn {
