@@ -1,29 +1,32 @@
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': '/src'
-    }
+      "@": "/src",
+    },
   },
   server: {
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
+      "/api": {
+        target: "http://localhost:3000",
         changeOrigin: true,
         configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
-            if (req.headers.accept && req.headers.accept.includes('text/event-stream')) {
+          proxy.on("proxyReq", (proxyReq, req, res) => {
+            if (
+              req.headers.accept &&
+              req.headers.accept.includes("text/event-stream")
+            ) {
               req.socket.setTimeout(0);
               req.socket.setNoDelay(true);
             }
           });
-        }
-      }
-    }
-  }
-})
+        },
+      },
+    },
+  },
+});
