@@ -109,6 +109,10 @@
   transition: box-shadow 0.15s ease;
 }
 
+.outline-item.is-animating {
+  pointer-events: none;
+}
+
 .outline-number {
   display: flex;
   align-items: center;

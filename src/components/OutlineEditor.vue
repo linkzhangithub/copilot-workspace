@@ -34,6 +34,8 @@ const {
   expandedState,
   generatingPath,
   isDragging,
+  isAnimating,
+  animatingIndex,
   originalDragIndex,
   itemRefs,
   outlineListRef,
@@ -283,6 +285,9 @@ onUnmounted(() => {
               { clickable: item.hasChildren },
               {
                 'is-dragging': isDragging && item.path[0] === originalDragIndex,
+              },
+              {
+                'is-animating': isAnimating && item.path[0] === animatingIndex,
               },
             ]"
             :ref="(el) => (itemRefs[index] = el)"
