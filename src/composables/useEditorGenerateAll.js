@@ -1,14 +1,13 @@
 import { ref } from "vue";
 
 export const useEditorGenerateAll = (options) => {
-  const { outline, projectName, emit } = options;
+  const { outline, projectName, emit, hasGeneratedAllContent } = options;
 
   const isGeneratingAll = ref(false);
   const isPaused = ref(false);
   const generatingSubsectionPath = ref(null);
   const currentGeneratingIndex = ref(0);
   const totalGeneratingCount = ref(0);
-  const hasGeneratedAllContent = ref(false);
   let isProcessing = false;
 
   const hasEmptySubsections = () => {
@@ -183,7 +182,6 @@ export const useEditorGenerateAll = (options) => {
     generatingSubsectionPath,
     currentGeneratingIndex,
     totalGeneratingCount,
-    hasGeneratedAllContent,
     handleGenerateAllContent,
   };
 };

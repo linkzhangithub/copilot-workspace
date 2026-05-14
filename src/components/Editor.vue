@@ -55,6 +55,7 @@ const {
   outline,
   projectName: toRef(props.project, "name"),
   emit,
+  hasGeneratedAllContent,
 });
 
 const generateAllButtonState = computed(() => {

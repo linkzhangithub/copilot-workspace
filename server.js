@@ -246,12 +246,29 @@ app.post("/api/ai/generate-content", async (req, res) => {
 
 // 通过完整path定位到章节的辅助函数
 const getSectionByPath = (outline, path) => {
+  if (!Array.isArray(outline) || !Array.isArray(path) || path.length === 0) {
+    throw new Error("Invalid parameters: outline must be an array and path must be a non-empty array");
+  }
+  
   let current = outline;
   for (let i = 0; i < path.length; i++) {
+    const index = path[i];
+    
+    if (typeof index !== 'number' || index < 0) {
+      throw new Error(`Invalid path index at position ${i}: must be a non-negative number`);
+    }
+    
+    if (!Array.isArray(current) || index >= current.length) {
+      throw new Error(`Path index out of bounds at position ${i}: ${index} >= ${current.length}`);
+    }
+    
     if (i < path.length - 1) {
-      current = current[path[i]].children;
+      if (!current[index].children || !Array.isArray(current[index].children)) {
+        throw new Error(`No children found at path position ${i}`);
+      }
+      current = current[index].children;
     } else {
-      current = current[path[i]];
+      current = current[index];
     }
   }
   return current;
