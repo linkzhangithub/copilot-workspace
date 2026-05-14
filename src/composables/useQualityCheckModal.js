@@ -180,8 +180,15 @@ export const useQualityCheckModal = (options) => {
     visibleSuggestionItems.value = [true, true, true];
     progressBarWidth.value = totalScore.value;
     currentStep.value = 5;
-    displaySuggestions.value = [...suggestions.value];
-
+    displaySuggestions.value = suggestions.value.map((s) => ({
+      icon: s.icon,
+      text: s.text,
+      issue: s.issue || "",
+      example: s.example || "",
+      hasIssue: !!s.issue,
+      hasExample: !!s.example,
+    }));
+    
     qualityCheckCompleted.value = true;
   };
 
