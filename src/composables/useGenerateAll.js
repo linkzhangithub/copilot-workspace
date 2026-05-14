@@ -5,7 +5,7 @@ import { ref, computed } from "vue";
  * @param {Object} options - 配置选项
  * @param {Function} options.emit - Vue emit 函数
  * @param {Function} options.getProjectName - 获取项目名称的函数
- * @param {Function} options.getOutline - 获取大纲数据的函数
+ * @param {Function} options.getOutline - 获取大纲数据的函数localStorage.setItem('test-key', 'test-value')
  * @param {Function} options.setOutline - 设置大纲数据的函数
  * @param {Function} options.getHasEmptySubsections - 获取是否有空白小节的函数
  * @returns {Object} - 一键生成相关的状态和方法
