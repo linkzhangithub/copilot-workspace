@@ -77,11 +77,27 @@ export const deleteQualityCheck = (projectId) => {
 };
 
 /**
- * 清空所有存储
+ * 清空所有存储（只清除应用相关的键）
  */
 export const clearAllStorage = () => {
   try {
-    localStorage.clear();
+    const keysToRemove = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (
+        key &&
+        (key === STORAGE_KEYS.PROJECTS ||
+          key.startsWith(STORAGE_KEYS.QUALITY_CHECK) ||
+          key.startsWith("vue-project-"))
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => {
+      localStorage.removeItem(key);
+    });
   } catch (e) {
     console.error("清空存储失败:", e);
   }
