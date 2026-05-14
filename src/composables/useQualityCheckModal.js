@@ -158,26 +158,25 @@ export const useQualityCheckModal = (options) => {
     return fullMarkdown.value === lastQualityCheck.value.articleContent;
   });
 
-  const showPreviousQualityCheck = () => {
+  const showPreviousQualityCheck = async () => {
     showQualityCheck.value = true;
     showLoadingState.value = false;
     qualityCheckLoading.value = false;
+
+    resetQualityState();
+
     qualityResults.value = { ...lastQualityCheck.value.results };
     qualityScores.value = { ...lastQualityCheck.value.scores };
     totalScore.value = lastQualityCheck.value.totalScore;
     totalComment.value = lastQualityCheck.value.totalComment;
     suggestions.value = [...lastQualityCheck.value.suggestions];
-    displaySuggestions.value = [...lastQualityCheck.value.suggestions];
 
-    nextTick(() => {
-      visibleItems.value = [true, true, true, true, true];
-      visibleTotalScore.value = true;
-      visibleSuggestions.value = true;
-      visibleSuggestionItems.value = [true, true, true];
-      progressBarWidth.value = totalScore.value;
-      currentStep.value = 5;
-      qualityCheckCompleted.value = true;
-    });
+    await nextTick();
+
+    await showTotalScore();
+    await showSuggestions();
+
+    qualityCheckCompleted.value = true;
   };
 
   const startQualityCheck = async () => {
