@@ -448,6 +448,8 @@ export const useQualityCheckModal = (options) => {
 
   const showSuggestions = async () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
+    if (isQualityCheckCancelled.value) return;
+
     visibleSuggestions.value = true;
     await nextTick();
     scrollToBottom();
@@ -469,6 +471,7 @@ export const useQualityCheckModal = (options) => {
       scrollToBottom();
 
       await new Promise((resolve) => setTimeout(resolve, 500));
+      if (isQualityCheckCancelled.value) return;
 
       const suggestion = suggestions.value[i];
       const displaySuggestion = displaySuggestions.value[i];
@@ -504,10 +507,12 @@ export const useQualityCheckModal = (options) => {
   };
 
   const closeQualityCheck = () => {
+    isQualityCheckCancelled.value = true;
+    
     if (!qualityCheckCompleted.value && qualityCheckLoading.value) {
-      isQualityCheckCancelled.value = true;
       qualityCheckLoading.value = false;
       resetLastQualityCheck();
+      resetQualityState();
       emit("show-toast", "已中断质检", "warning", 2500);
     }
 
