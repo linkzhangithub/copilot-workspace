@@ -399,7 +399,7 @@ const scrollToTop = () => {
 const getIsGenerating = () => {
   const gen1 = generatingSubsectionPath.value !== null;
   const gen2 = isGeneratingAll.value && !isPaused.value;
-  const gen3 = contentGeneratorRef.value?.isGeneratingSingle;
+  const gen3 = contentGeneratorRef.value?.isGeneratingSingle?.value || false;
   const gen4 = loading.value; // 大纲生成中
   
   return gen1 || gen2 || gen3 || gen4;
