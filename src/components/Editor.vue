@@ -444,7 +444,7 @@ onUnmounted(() => {
         :is-paused="isPaused"
         :generating-subsection-path="generatingSubsectionPath"
         @update:outline="updateOutline"
-        @update:generating-path="generatingSubsectionPath = $event"
+        @update:generating-path="generatingSubsectionPath.value = $event"
       />
     </div>
 

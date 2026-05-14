@@ -247,21 +247,27 @@ app.post("/api/ai/generate-content", async (req, res) => {
 // 通过完整path定位到章节的辅助函数
 const getSectionByPath = (outline, path) => {
   if (!Array.isArray(outline) || !Array.isArray(path) || path.length === 0) {
-    throw new Error("Invalid parameters: outline must be an array and path must be a non-empty array");
+    throw new Error(
+      "Invalid parameters: outline must be an array and path must be a non-empty array",
+    );
   }
-  
+
   let current = outline;
   for (let i = 0; i < path.length; i++) {
     const index = path[i];
-    
-    if (typeof index !== 'number' || index < 0) {
-      throw new Error(`Invalid path index at position ${i}: must be a non-negative number`);
+
+    if (typeof index !== "number" || index < 0) {
+      throw new Error(
+        `Invalid path index at position ${i}: must be a non-negative number`,
+      );
     }
-    
+
     if (!Array.isArray(current) || index >= current.length) {
-      throw new Error(`Path index out of bounds at position ${i}: ${index} >= ${current.length}`);
+      throw new Error(
+        `Path index out of bounds at position ${i}: ${index} >= ${current.length}`,
+      );
     }
-    
+
     if (i < path.length - 1) {
       if (!current[index].children || !Array.isArray(current[index].children)) {
         throw new Error(`No children found at path position ${i}`);
@@ -463,6 +469,53 @@ ${contextInfo.originalContent || ""}
 
 请精简缩写以上内容，保留核心观点，删除冗余表述。
 直接返回缩写后的内容！`;
+    } else {
+      systemPrompt = `你是一位专业的文章写作助手，擅长根据上下文创作出连贯、有逻辑的内容。
+
+【核心写作原则】
+1. **上下文连贯性**：用1-2句话自然承接上一章的结尾，为下一章做好铺垫
+2. **严格避免重复**：绝对不要重复【已完成章节摘要】和【禁止重复关键点】中的任何内容
+3. **内容充实度**：每个小节至少包含3个段落，每段2-4句话
+4. **逻辑递进**：从引入→分析→总结，层层深入
+5. **专业性**：使用专业术语和具体案例，避免空泛表述
+
+【禁止事项】
+- ❌ 不要输出标题（标题已在大纲中）
+- ❌ 不要输出"第X章"、"第X节"等编号
+- ❌ 不要重复已有内容
+- ❌ 不要输出任何解释说明
+
+【内容要求】
+- 字数：300-500字
+- 段落：至少3个段落
+- 风格：专业、流畅、有逻辑
+
+直接返回正文内容，不要任何标题或解释！`;
+
+      userPrompt = `【文章主题】
+${articleTopic || "未指定"}
+
+【当前章节】
+${positionDescription || "未知位置"}
+
+【已完成章节摘要】
+${completedSectionsSummary || "无"}
+
+【禁止重复的关键点】
+${forbiddenPoints || "无"}
+
+【大纲上下文】
+${outlineContext}
+
+请为当前章节撰写正文内容。
+要求：
+1. 用1-2句话自然承接上文（如果有上文）
+2. 内容充实，至少3个段落
+3. 专注于本章主题，不越界
+4. 结尾可以为下一章做轻微铺垫
+5. 字数约300-500字
+
+直接返回正文内容，不要任何标题或解释！`;
     }
 
     const messages = [

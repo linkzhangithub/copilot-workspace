@@ -155,13 +155,31 @@ export const useOutlineGeneration = (options) => {
 
         for (let i = 0; i < fallbackOutline.length; i++) {
           const chapter = fallbackOutline[i];
-          currentOutline.push({
+
+          const chapterWithEmptyChildren = {
             id: `section-${timestamp}-${i}`,
             title: chapter.title,
-            children: chapter.children,
-          });
+            children: [],
+          };
+
+          currentOutline.push(chapterWithEmptyChildren);
           setOutline([...currentOutline]);
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          if (chapter.children && chapter.children.length > 0) {
+            for (let j = 0; j < chapter.children.length; j++) {
+              const subsectionTitle = chapter.children[j];
+
+              currentOutline[i].children.push({
+                id: `subsection-${timestamp}-${i}-${j}`,
+                title: subsectionTitle,
+                children: [],
+              });
+
+              setOutline([...currentOutline]);
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+          }
         }
       }
     } finally {

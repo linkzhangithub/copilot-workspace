@@ -118,14 +118,33 @@ export const useOutlineAndGenerate = (options) => {
         const timestamp = Date.now();
         for (let i = 0; i < fallbackOutline.length; i++) {
           const chapter = fallbackOutline[i];
-          const currentOutline = getOutline();
-          currentOutline.push({
+
+          const chapterWithEmptyChildren = {
             id: `section-${timestamp}-${i}`,
             title: chapter.title,
-            children: chapter.children,
-          });
+            children: [],
+          };
+
+          const currentOutline = getOutline();
+          currentOutline.push(chapterWithEmptyChildren);
           setOutline([...currentOutline]);
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          if (chapter.children && chapter.children.length > 0) {
+            for (let j = 0; j < chapter.children.length; j++) {
+              const subsectionTitle = chapter.children[j];
+
+              const outline = getOutline();
+              outline[i].children.push({
+                id: `subsection-${timestamp}-${i}-${j}`,
+                title: subsectionTitle,
+                children: [],
+              });
+
+              setOutline([...outline]);
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+          }
         }
       }
     } finally {
