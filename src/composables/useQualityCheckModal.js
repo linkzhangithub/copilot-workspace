@@ -14,6 +14,7 @@ export const useQualityCheckModal = (options) => {
   const qualityCheckLoading = ref(false);
   const qualityCheckError = ref("");
   const showLoadingState = ref(true);
+  const qualityCheckTaskId = ref(0);
   const visibleItems = ref([false, false, false, false, false]);
   const qualityResults = ref({
     structure: "",
@@ -200,6 +201,8 @@ export const useQualityCheckModal = (options) => {
     isQualityCheckCancelled.value = false;
     qualityCheckCompleted.value = false;
 
+    const currentTaskId = ++qualityCheckTaskId.value;
+
     if (
       fullMarkdown.value === lastQualityCheck.value.articleContent &&
       lastQualityCheck.value.results &&
@@ -239,10 +242,12 @@ export const useQualityCheckModal = (options) => {
       }
 
       if (isQualityCheckCancelled.value) return;
+      if (qualityCheckTaskId.value !== currentTaskId) return;
 
       showLoadingState.value = false;
       await new Promise((resolve) => setTimeout(resolve, 300));
       if (isQualityCheckCancelled.value) return;
+      if (qualityCheckTaskId.value !== currentTaskId) return;
 
       const evaluations = result.data;
       const categoryIcons = {
@@ -290,8 +295,9 @@ export const useQualityCheckModal = (options) => {
 
       suggestions.value = autoSuggestions;
 
-      await processDimensions(dimensions, evaluations);
+      await processDimensions(dimensions, evaluations, currentTaskId);
       if (isQualityCheckCancelled.value) return;
+      if (qualityCheckTaskId.value !== currentTaskId) return;
 
       currentStep.value = 5;
       qualityCheckCompleted.value = true;
@@ -309,8 +315,11 @@ export const useQualityCheckModal = (options) => {
       };
       saveQualityCheckRecord();
 
-      await showTotalScore();
-      await showSuggestions();
+      await showTotalScore(currentTaskId);
+      if (isQualityCheckCancelled.value) return;
+      if (qualityCheckTaskId.value !== currentTaskId) return;
+
+      await showSuggestions(currentTaskId);
     } catch (error) {
       if (!isQualityCheckCancelled.value) {
         console.error("质检失败:", error);
@@ -346,6 +355,7 @@ export const useQualityCheckModal = (options) => {
     visibleSuggestions.value = false;
     visibleSuggestionItems.value = [false, false, false];
     displaySuggestions.value = [];
+    suggestions.value = [];
   };
 
   const getDefaultSuggestions = () => {
@@ -377,9 +387,10 @@ export const useQualityCheckModal = (options) => {
     ];
   };
 
-  const processDimensions = async (dimensions, evaluations) => {
+  const processDimensions = async (dimensions, evaluations, taskId) => {
     for (let i = 0; i < dimensions.length; i++) {
       if (isQualityCheckCancelled.value) return;
+      if (qualityCheckTaskId.value !== taskId) return;
 
       const dim = dimensions[i];
       const text = evaluations[dim.key] || "评价加载失败";
@@ -391,6 +402,7 @@ export const useQualityCheckModal = (options) => {
 
       await new Promise((resolve) => setTimeout(resolve, 150));
       if (isQualityCheckCancelled.value) return;
+      if (qualityCheckTaskId.value !== taskId) return;
 
       visibleItems.value[i] = true;
       await nextTick();
@@ -401,6 +413,7 @@ export const useQualityCheckModal = (options) => {
 
       for (let j = 0; j < resultText.length; j++) {
         if (isQualityCheckCancelled.value) return;
+        if (qualityCheckTaskId.value !== taskId) return;
         qualityResults.value[dim.key] += resultText[j];
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
@@ -428,9 +441,10 @@ export const useQualityCheckModal = (options) => {
     }
   };
 
-  const showTotalScore = async () => {
+  const showTotalScore = async (taskId) => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     if (isQualityCheckCancelled.value) return;
+    if (taskId !== undefined && qualityCheckTaskId.value !== taskId) return;
 
     visibleTotalScore.value = true;
     await nextTick();
@@ -440,15 +454,17 @@ export const useQualityCheckModal = (options) => {
     const step = Math.max(1, Math.ceil(targetWidth / 30));
     for (let i = 0; i <= targetWidth; i += step) {
       if (isQualityCheckCancelled.value) return;
+      if (taskId !== undefined && qualityCheckTaskId.value !== taskId) return;
       progressBarWidth.value = Math.min(i, targetWidth);
       await new Promise((resolve) => setTimeout(resolve, 15));
     }
     progressBarWidth.value = targetWidth;
   };
 
-  const showSuggestions = async () => {
+  const showSuggestions = async (taskId) => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     if (isQualityCheckCancelled.value) return;
+    if (taskId !== undefined && qualityCheckTaskId.value !== taskId) return;
 
     visibleSuggestions.value = true;
     await nextTick();
@@ -465,6 +481,7 @@ export const useQualityCheckModal = (options) => {
 
     for (let i = 0; i < suggestions.value.length; i++) {
       if (isQualityCheckCancelled.value) return;
+      if (taskId !== undefined && qualityCheckTaskId.value !== taskId) return;
 
       visibleSuggestionItems.value[i] = true;
       await nextTick();
@@ -472,6 +489,7 @@ export const useQualityCheckModal = (options) => {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (isQualityCheckCancelled.value) return;
+      if (taskId !== undefined && qualityCheckTaskId.value !== taskId) return;
 
       const suggestion = suggestions.value[i];
       const displaySuggestion = displaySuggestions.value[i];
@@ -479,6 +497,8 @@ export const useQualityCheckModal = (options) => {
       if (suggestion.issue) {
         for (let j = 0; j < suggestion.issue.length; j++) {
           if (isQualityCheckCancelled.value) return;
+          if (taskId !== undefined && qualityCheckTaskId.value !== taskId)
+            return;
           displaySuggestion.issue += suggestion.issue[j];
           await new Promise((resolve) => setTimeout(resolve, 15));
         }
@@ -488,6 +508,8 @@ export const useQualityCheckModal = (options) => {
       if (suggestion.text) {
         for (let j = 0; j < suggestion.text.length; j++) {
           if (isQualityCheckCancelled.value) return;
+          if (taskId !== undefined && qualityCheckTaskId.value !== taskId)
+            return;
           displaySuggestion.text += suggestion.text[j];
           await new Promise((resolve) => setTimeout(resolve, 15));
         }
@@ -497,6 +519,8 @@ export const useQualityCheckModal = (options) => {
       if (suggestion.example) {
         for (let j = 0; j < suggestion.example.length; j++) {
           if (isQualityCheckCancelled.value) return;
+          if (taskId !== undefined && qualityCheckTaskId.value !== taskId)
+            return;
           displaySuggestion.example += suggestion.example[j];
           await new Promise((resolve) => setTimeout(resolve, 15));
         }
@@ -508,7 +532,7 @@ export const useQualityCheckModal = (options) => {
 
   const closeQualityCheck = () => {
     isQualityCheckCancelled.value = true;
-    
+
     if (!qualityCheckCompleted.value && qualityCheckLoading.value) {
       qualityCheckLoading.value = false;
       resetLastQualityCheck();
