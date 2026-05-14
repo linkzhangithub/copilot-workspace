@@ -84,6 +84,10 @@ const isGeneratingContent = computed(() => {
   return false;
 });
 
+const fullMarkdown = computed(() => {
+  return generateMarkdown(props.project.name, outline.value);
+});
+
 const qualityCheckModalRef = ref(null);
 
 const startQualityCheck = () => {
@@ -167,7 +171,18 @@ watch(
   },
 );
 
-watch(outline, saveToStorageWithIds, { deep: true });
+let saveToStorageTimer = null;
+const saveToStorageDebounced = () => {
+  if (saveToStorageTimer) {
+    clearTimeout(saveToStorageTimer);
+  }
+  saveToStorageTimer = setTimeout(() => {
+    saveToStorageWithIds();
+    saveToStorageTimer = null;
+  }, 500);
+};
+
+watch(outline, saveToStorageDebounced, { deep: true });
 
 watch(
   () => outline.value.length,
@@ -438,7 +453,7 @@ onUnmounted(() => {
       :projectName="project.name"
       :outline="outline"
       :isGeneratingContent="isGeneratingContent"
-      :fullMarkdown="generateMarkdown(project.name, outline)"
+      :fullMarkdown="fullMarkdown"
       @show-toast="
         (message, type, duration) => emit('show-toast', message, type, duration)
       "
