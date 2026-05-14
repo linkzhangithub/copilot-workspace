@@ -9,6 +9,12 @@ export const useEditorGenerateAll = (options) => {
   const currentGeneratingIndex = ref(0);
   const totalGeneratingCount = ref(0);
   let isProcessing = false;
+  
+  // AbortController 用于中断 API 请求
+  let currentAbortController = null;
+  
+  // 强制中断标志 - 用于切换项目时立即中断
+  let shouldForceStop = false;
 
   const hasEmptySubsections = () => {
     for (const chapter of outline.value) {
@@ -23,7 +29,39 @@ export const useEditorGenerateAll = (options) => {
     return false;
   };
 
+  /**
+   * 清理生成状态 - 用于切换项目时中断生成
+   */
+  const cleanupGeneratingState = () => {
+    // 设置强制中断标志
+    shouldForceStop = true;
+    
+    // 中断当前正在进行的 API 请求
+    if (currentAbortController) {
+      currentAbortController.abort();
+      currentAbortController = null;
+    }
+    
+    // 清空正在生成的小节内容
+    if (generatingSubsectionPath.value) {
+      const [i, j] = generatingSubsectionPath.value;
+      if (outline.value[i]?.children?.[j]) {
+        outline.value[i].children[j].content = "";
+        outline.value = [...outline.value];
+      }
+    }
+    
+    // 重置所有生成状态
+    isGeneratingAll.value = false;
+    isPaused.value = false;
+    generatingSubsectionPath.value = null;
+    currentGeneratingIndex.value = 0;
+    totalGeneratingCount.value = 0;
+    isProcessing = false;
+  };
+
   const handleGenerateAllContent = async () => {
+    // 如果正在生成且未暂停，则暂停
     if (isGeneratingAll.value && !isPaused.value) {
       isPaused.value = true;
       if (generatingSubsectionPath.value) {
@@ -42,18 +80,23 @@ export const useEditorGenerateAll = (options) => {
       return;
     }
 
-    if (isPaused.value) {
+    // 如果已暂停，则继续生成（不return，继续执行后面的逻辑）
+    const isResuming = isPaused.value;
+    if (isResuming) {
       isPaused.value = false;
       emit("show-toast", "继续生成内容...", "info", 2000);
-      return;
     }
 
-    if (isProcessing) {
+    // 如果正在处理中（非暂停状态），则拒绝
+    if (isProcessing && !isResuming) {
       emit("show-toast", "正在处理中，请稍候...", "warning", 1000);
       return;
     }
 
     isProcessing = true;
+    
+    // 重置强制中断标志
+    shouldForceStop = false;
 
     try {
       isGeneratingAll.value = true;
@@ -74,16 +117,18 @@ export const useEditorGenerateAll = (options) => {
       totalGeneratingCount.value = emptyCount;
       currentGeneratingIndex.value = 0;
 
-      emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
+      if (!isResuming) {
+        emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
+      }
 
       for (let i = 0; i < outline.value.length; i++) {
-        if (isPaused.value) return;
+        if (isPaused.value || shouldForceStop) return;
 
         const chapter = outline.value[i];
 
         if (chapter.children && chapter.children.length > 0) {
           for (let j = 0; j < chapter.children.length; j++) {
-            if (isPaused.value) return;
+            if (isPaused.value || shouldForceStop) return;
 
             const subsection = chapter.children[j];
 
@@ -99,6 +144,9 @@ export const useEditorGenerateAll = (options) => {
               );
 
               try {
+                // 创建新的 AbortController
+                currentAbortController = new AbortController();
+                
                 const response = await fetch(
                   "/api/ai/generate-content-simple",
                   {
@@ -117,6 +165,7 @@ export const useEditorGenerateAll = (options) => {
                         isSubsection: true,
                       },
                     }),
+                    signal: currentAbortController.signal,
                   },
                 );
 
@@ -183,5 +232,6 @@ export const useEditorGenerateAll = (options) => {
     currentGeneratingIndex,
     totalGeneratingCount,
     handleGenerateAllContent,
+    cleanupGeneratingState,
   };
 };

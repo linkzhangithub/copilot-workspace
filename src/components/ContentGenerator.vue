@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, toRef, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, toRef, nextTick } from "vue";
 import Icon from "./Icon.vue";
 import { cleanTitleMarkdown } from "../utils/stringUtils.js";
 import "../styles/content-generator.css";
@@ -13,7 +13,10 @@ const props = defineProps({
   generatingSubsectionPath: { type: Array, default: null },
 });
 
-const emit = defineEmits(["update:outline", "update:generating-path"]);
+const emit = defineEmits(["update:outline", "show-toast"]);
+
+// AbortController 用于中断单个小节生成
+let currentAbortController = null;
 
 const {
   generatingPath,
@@ -57,12 +60,27 @@ const isCurrentSubsectionGenerating = (path) => {
 };
 
 const generateSection = async (path) => {
+  // 检查是否正在一键生成
+  if (props.isGeneratingAll && !props.isPaused) {
+    emit("show-toast", "内容生成中，请稍后再试", "warning", 3000);
+    return;
+  }
+
   if (generatingPath.value !== null) return;
   if (operatingPath.value !== null) return;
 
   const pathKey = getPathKey(path);
   generatingPath.value = pathKey;
-  emit("update:generating-path", path);
+  
+  // 创建 AbortController
+  const abortController = new AbortController();
+  currentAbortController = abortController;
+
+  // 显示Toast提示：正在生成第X章第X小节
+  const mainIndex = path[0] + 1;
+  const subIndex = path.length > 1 ? path[1] + 1 : null;
+  const positionText = subIndex ? `第${mainIndex}章第${subIndex}小节` : `第${mainIndex}章`;
+  emit("show-toast", `正在生成${positionText}内容...`, "info", 2000);
 
   const currentSection = getSectionByPath(props.outline, path);
   const sectionTitle = currentSection.title;
@@ -85,6 +103,7 @@ const generateSection = async (path) => {
         path: path,
         contextInfo: contextInfo,
       }),
+      signal: abortController.signal,
     });
 
     if (!response.ok) {
@@ -100,19 +119,25 @@ const generateSection = async (path) => {
       );
       updateContent("");
       await typeWriter(cleanedContent, (partialText) => {
+        // 检查是否被中断
+        if (generatingPath.value === null) {
+          throw new Error('生成已中断');
+        }
         updateContent(partialText);
       });
     }
   } catch (err) {
-    console.error("生成失败:", err);
-    const fallbackContent = `这是${sectionTitle}的示例内容。\n\nAI暂时无法生成内容，请稍后再试或手动编辑。`;
-    updateContent("");
-    await typeWriter(fallbackContent, (partialText) => {
-      updateContent(partialText);
-    });
+    if (err.name === 'AbortError' || err.message === '生成已中断') {
+      console.log('生成被中断');
+      // 清空内容
+      updateContent("");
+    } else {
+      console.error("生成失败:", err);
+      emit("show-toast", "生成失败，请重试", "error", 3000);
+    }
   } finally {
     generatingPath.value = null;
-    emit("update:generating-path", null);
+    currentAbortController = null;
   }
 };
 
@@ -205,7 +230,27 @@ const stopDrag = () => {
   document.removeEventListener("mouseup", stopDrag);
 };
 
-defineExpose({ scrollToSection });
+// 检查是否正在生成单个小节内容
+const isGeneratingSingle = computed(() => {
+  return generatingPath.value !== null || operatingPath.value !== null;
+});
+
+/**
+ * 清理生成状态
+ */
+const cleanupState = () => {
+  // 中断 API 请求
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+  
+  generatingPath.value = null;
+  operatingPath.value = null;
+  currentOperation.value = "";
+};
+
+defineExpose({ scrollToSection, isGeneratingSingle, cleanupState });
 
 onMounted(() => {
   checkIsMobile();

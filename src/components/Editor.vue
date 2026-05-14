@@ -51,6 +51,7 @@ const {
   isPaused,
   generatingSubsectionPath,
   handleGenerateAllContent,
+  cleanupGeneratingState,
 } = useEditorGenerateAll({
   outline,
   projectName: toRef(props.project, "name"),
@@ -78,6 +79,10 @@ const titleInput = ref(null);
 const contentGeneratorRef = ref(null);
 const editorRef = ref(null);
 const showBackToTop = ref(false);
+
+// 大纲生成中断控制
+let outlineAbortController = null;
+let shouldForceStopOutline = false;
 
 const isGeneratingContent = computed(() => {
   if (generatingSubsectionPath.value !== null) return true;
@@ -196,16 +201,24 @@ watch(
 );
 
 const generateOutline = async () => {
+  // 重置中断标志
+  shouldForceStopOutline = false;
+  
   error.value = "";
   loading.value = true;
 
   emit("show-toast", "AI写作助手正在为您构建大纲，请稍候...", "info", 2000);
 
   try {
+    // 创建 AbortController
+    const abortController = new AbortController();
+    outlineAbortController = abortController;
+
     const response = await fetch("/api/ai/generate-outline", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topic: props.project.name }),
+      signal: abortController.signal,
     });
 
     const result = await response.json();
@@ -229,6 +242,12 @@ const generateOutline = async () => {
     outline.value = [];
 
     for (let i = 0; i < outlineData.length; i++) {
+      // 检测中断标志
+      if (shouldForceStopOutline) {
+        emit("show-toast", "大纲生成已中断", "warning", 2000);
+        return;
+      }
+
       const chapter = outlineData[i];
 
       const chapterWithEmptyChildren = {
@@ -242,6 +261,12 @@ const generateOutline = async () => {
 
       if (chapter.children && chapter.children.length > 0) {
         for (let j = 0; j < chapter.children.length; j++) {
+          // 检测中断标志
+          if (shouldForceStopOutline) {
+            emit("show-toast", "大纲生成已中断", "warning", 2000);
+            return;
+          }
+
           const subsectionTitle = chapter.children[j];
 
           outline.value[i].children.push({
@@ -265,6 +290,12 @@ const generateOutline = async () => {
       3000,
     );
   } catch (err) {
+    // 如果是被中断的，不显示错误信息
+    if (err.name === 'AbortError') {
+      console.log('大纲生成被中断');
+      return;
+    }
+
     console.error("请求失败:", err);
     error.value = "生成大纲失败，请确保后端服务已启动";
 
@@ -278,6 +309,12 @@ const generateOutline = async () => {
 
       const timestamp = Date.now();
       for (let i = 0; i < fallbackOutline.length; i++) {
+        // 检测中断标志
+        if (shouldForceStopOutline) {
+          emit("show-toast", "大纲生成已中断", "warning", 2000);
+          return;
+        }
+
         const chapter = fallbackOutline[i];
         outline.value.push({
           id: `section-${timestamp}-${i}`,
@@ -289,6 +326,7 @@ const generateOutline = async () => {
     }
   } finally {
     loading.value = false;
+    outlineAbortController = null;
   }
 };
 
@@ -334,6 +372,17 @@ const handleScrollToSection = (path) => {
   }
 };
 
+// 包装一键生成函数，添加单个生成状态检查
+const wrappedHandleGenerateAllContent = async () => {
+  // 检查是否正在生成单个小节内容
+  if (contentGeneratorRef.value?.isGeneratingSingle) {
+    emit("show-toast", "内容生成中，请稍后再试", "warning", 3000);
+    return;
+  }
+  
+  await handleGenerateAllContent();
+};
+
 const handleEditorScroll = () => {
   if (editorRef.value) {
     showBackToTop.value = editorRef.value.scrollTop > 300;
@@ -346,7 +395,49 @@ const scrollToTop = () => {
   }
 };
 
-defineExpose({ exportMarkdown });
+// 检查是否正在生成内容
+const getIsGenerating = () => {
+  const gen1 = generatingSubsectionPath.value !== null;
+  const gen2 = isGeneratingAll.value && !isPaused.value;
+  const gen3 = contentGeneratorRef.value?.isGeneratingSingle;
+  const gen4 = loading.value; // 大纲生成中
+  
+  return gen1 || gen2 || gen3 || gen4;
+};
+
+/**
+ * 清理大纲生成状态
+ */
+const cleanupOutlineGeneration = () => {
+  shouldForceStopOutline = true;
+  if (outlineAbortController) {
+    outlineAbortController.abort();
+    outlineAbortController = null;
+  }
+  loading.value = false;
+};
+
+/**
+ * 包装的清理函数 - 同时清理一键生成、单个生成和大纲生成的状态
+ */
+const handleCleanupGeneratingState = () => {
+  // 清理大纲生成的状态
+  cleanupOutlineGeneration();
+  
+  // 清理一键生成的状态
+  cleanupGeneratingState();
+  
+  // 清理ContentGenerator的状态(单个小节生成)
+  if (contentGeneratorRef.value?.cleanupState) {
+    contentGeneratorRef.value.cleanupState();
+  }
+};
+
+defineExpose({ 
+  exportMarkdown, 
+  cleanupGeneratingState: handleCleanupGeneratingState,
+  getIsGenerating
+});
 
 onMounted(() => {
   loadFromStorageWithIds();
@@ -431,7 +522,7 @@ onUnmounted(() => {
         @show-toast="
           (msg, type, duration) => emit('show-toast', msg, type, duration)
         "
-        @generate-all-content="handleGenerateAllContent"
+        @generate-all-content="wrappedHandleGenerateAllContent"
         @scroll-to-section="handleScrollToSection"
       />
 
@@ -444,7 +535,7 @@ onUnmounted(() => {
         :is-paused="isPaused"
         :generating-subsection-path="generatingSubsectionPath"
         @update:outline="updateOutline"
-        @update:generating-path="generatingSubsectionPath.value = $event"
+        @show-toast="(msg, type, duration) => emit('show-toast', msg, type, duration)"
       />
     </div>
 

@@ -11,6 +11,8 @@ import "./styles/app.css";
 const { currentTheme, toggleTheme } = useTheme();
 
 const toastRef = ref(null);
+const showSwitchConfirm = ref(false);
+const pendingProject = ref(null);
 
 const showToast = (message, type = "info", duration = 3000) => {
   if (toastRef.value) {
@@ -53,10 +55,46 @@ const saveProjects = () => {
 };
 
 const handleProjectClick = (project) => {
-  selectedProject.value = project;
+  // 检查是否正在生成内容
+  const editor = editorRef.value;
+  const isGenerating = editor?.getIsGenerating?.();
+  
+  if (isGenerating) {
+    // 正在生成，先中断并清理状态，显示提示
+    if (editor?.cleanupGeneratingState) {
+      editor.cleanupGeneratingState();
+      showToast("已中断生成", "warning", 2000);
+    }
+    
+    // 然后显示确认弹窗
+    pendingProject.value = project;
+    showSwitchConfirm.value = true;
+  } else {
+    // 没有正在生成，直接切换
+    selectedProject.value = project;
+    if (window.innerWidth < 768) {
+      sidebarOpen.value = false;
+    }
+  }
+};
+
+// 确认切换项目
+const confirmSwitchProject = () => {
+  // 切换到新项目
+  selectedProject.value = pendingProject.value;
+  pendingProject.value = null;
+  showSwitchConfirm.value = false;
+  
   if (window.innerWidth < 768) {
     sidebarOpen.value = false;
   }
+};
+
+// 取消切换项目
+const cancelSwitchProject = () => {
+  pendingProject.value = null;
+  showSwitchConfirm.value = false;
+  // 不需要额外操作，状态已经在handleProjectClick时清理了
 };
 
 const toggleSidebar = () => {
@@ -209,5 +247,28 @@ onUnmounted(() => {
     </main>
 
     <ToastContainer ref="toastRef" />
+    
+    <!-- 切换项目确认弹窗 -->
+    <Transition name="modal-fade">
+      <div v-if="showSwitchConfirm" class="modal-overlay" @click="cancelSwitchProject">
+        <div 
+          :class="['modal-content', { 'light-mode': currentTheme === 'light' }]"
+          @click.stop
+        >
+          <div class="modal-header">
+            <Icon name="AlertCircle" :size="24" />
+            <h3>已中断生成</h3>
+          </div>
+          <div class="modal-body">
+            <p>生成内容已中断，当前文章状态已重置。</p>
+            <p class="modal-hint">确定要切换项目吗？</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-cancel" @click="cancelSwitchProject">取消</button>
+            <button class="btn btn-confirm" @click="confirmSwitchProject">确认切换</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>

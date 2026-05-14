@@ -21,6 +21,8 @@ export const useOutlineGeneration = (options) => {
 
   const error = ref("");
   const loading = ref(false);
+  let currentAbortController = null;
+  let shouldForceStop = false;
 
   /**
    * 给 outline 项目添加唯一 id
@@ -69,21 +71,48 @@ export const useOutlineGeneration = (options) => {
   };
 
   /**
+   * 清理大纲生成状态
+   */
+  const cleanupOutlineGeneration = () => {
+    shouldForceStop = true;
+    if (currentAbortController) {
+      currentAbortController.abort();
+      currentAbortController = null;
+    }
+    loading.value = false;
+  };
+
+  /**
+   * 检查是否正在生成大纲
+   */
+  const isGeneratingOutline = () => {
+    return loading.value;
+  };
+
+  /**
    * 生成大纲（一次性生成完整结构，流式显示）
    */
   const generateOutline = async () => {
+    // 重置中断标志
+    shouldForceStop = false;
+
     error.value = "";
     loading.value = true;
 
     emit("show-toast", "AI写作助手正在为您构建大纲，请稍候...", "info", 2000);
 
     try {
+      // 创建 AbortController
+      const abortController = new AbortController();
+      currentAbortController = abortController;
+
       const response = await fetch("/api/ai/generate-outline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: getProjectName(),
         }),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -106,6 +135,12 @@ export const useOutlineGeneration = (options) => {
       const currentOutline = [];
 
       for (let i = 0; i < outlineData.length; i++) {
+        // 检测中断标志
+        if (shouldForceStop) {
+          emit("show-toast", "大纲生成已中断", "warning", 2000);
+          return;
+        }
+
         const chapter = outlineData[i];
 
         const chapterWithEmptyChildren = {
@@ -121,6 +156,12 @@ export const useOutlineGeneration = (options) => {
 
         if (chapter.children && chapter.children.length > 0) {
           for (let j = 0; j < chapter.children.length; j++) {
+            // 检测中断标志
+            if (shouldForceStop) {
+              emit("show-toast", "大纲生成已中断", "warning", 2000);
+              return;
+            }
+
             const subsectionTitle = chapter.children[j];
 
             currentOutline[i].children.push({
@@ -145,6 +186,12 @@ export const useOutlineGeneration = (options) => {
         3000,
       );
     } catch (err) {
+      // 如果是被中断的，不显示错误信息
+      if (err.name === 'AbortError') {
+        console.log('大纲生成被中断');
+        return;
+      }
+
       console.error("请求失败:", err);
       error.value = "生成大纲失败，请确保后端服务已启动";
 
@@ -154,6 +201,12 @@ export const useOutlineGeneration = (options) => {
         const timestamp = Date.now();
 
         for (let i = 0; i < fallbackOutline.length; i++) {
+          // 检测中断标志
+          if (shouldForceStop) {
+            emit("show-toast", "大纲生成已中断", "warning", 2000);
+            return;
+          }
+
           const chapter = fallbackOutline[i];
 
           const chapterWithEmptyChildren = {
@@ -168,6 +221,12 @@ export const useOutlineGeneration = (options) => {
 
           if (chapter.children && chapter.children.length > 0) {
             for (let j = 0; j < chapter.children.length; j++) {
+              // 检测中断标志
+              if (shouldForceStop) {
+                emit("show-toast", "大纲生成已中断", "warning", 2000);
+                return;
+              }
+
               const subsectionTitle = chapter.children[j];
 
               currentOutline[i].children.push({
@@ -184,6 +243,7 @@ export const useOutlineGeneration = (options) => {
       }
     } finally {
       loading.value = false;
+      currentAbortController = null;
     }
   };
 
@@ -193,5 +253,7 @@ export const useOutlineGeneration = (options) => {
     generateOutline,
     addIdsToOutline,
     getDefaultOutline,
+    cleanupOutlineGeneration,
+    isGeneratingOutline,
   };
 };
