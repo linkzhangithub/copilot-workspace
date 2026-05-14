@@ -147,6 +147,10 @@ const rewriteSection = async (path, operation) => {
   const pathKey = getPathKey(path);
   operatingPath.value = pathKey;
   currentOperation.value = operation;
+  
+  // 创建 AbortController
+  const abortController = new AbortController();
+  currentAbortController = abortController;
 
   const section = getSectionByPath(props.outline, path);
 
@@ -167,6 +171,7 @@ const rewriteSection = async (path, operation) => {
         content: section.content,
         operation: operation,
       }),
+      signal: abortController.signal,
     });
 
     if (!response.ok) {
@@ -178,27 +183,38 @@ const rewriteSection = async (path, operation) => {
     if (result.success && result.data) {
       updateRewriteContent("");
       await typeWriter(result.data, (partialText) => {
+        // 检查是否被中断
+        if (operatingPath.value === null) {
+          throw new Error('改写已中断');
+        }
         updateRewriteContent(partialText);
       });
     }
   } catch (err) {
-    console.error("改写失败:", err);
-    let newContent = section.content;
-    if (operation === "polish") {
-      newContent = section.content + "\n\n（已润色）";
-    } else if (operation === "expand") {
-      newContent = section.content + "\n\n（已扩写）这段是新增的扩展内容。";
-    } else if (operation === "shorten") {
-      newContent = section.content.slice(0, 50) + "...\n（已缩写）";
-    }
+    if (err.name === 'AbortError' || err.message === '改写已中断') {
+      console.log('改写被中断');
+      // 恢复原始内容
+      updateRewriteContent(section.content);
+    } else {
+      console.error("改写失败:", err);
+      let newContent = section.content;
+      if (operation === "polish") {
+        newContent = section.content + "\n\n（已润色）";
+      } else if (operation === "expand") {
+        newContent = section.content + "\n\n（已扩写）这段是新增的扩展内容。";
+      } else if (operation === "shorten") {
+        newContent = section.content.slice(0, 50) + "...\n（已缩写）";
+      }
 
-    updateRewriteContent("");
-    await typeWriter(newContent, (partialText) => {
-      updateRewriteContent(partialText);
-    });
+      updateRewriteContent("");
+      await typeWriter(newContent, (partialText) => {
+        updateRewriteContent(partialText);
+      });
+    }
   } finally {
     operatingPath.value = null;
     currentOperation.value = "";
+    currentAbortController = null;
   }
 };
 
