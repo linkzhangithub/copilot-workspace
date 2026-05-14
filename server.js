@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import fs from "fs";
 import express from "express";
 import cors from "cors";
+import crypto from "crypto";
 import AIService from "./services/aiService.js";
 
 const envPath = "./.env";
@@ -23,14 +24,20 @@ if (fs.existsSync(envPath)) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === "production";
 
 const corsOptions = {
-  origin: isProduction 
-    ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
-    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  origin: isProduction
+    ? process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(",")
+      : []
+    : [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+      ],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
 };
 
 app.use(cors(corsOptions));
@@ -41,19 +48,40 @@ const apiKeyAuth = (req, res, next) => {
     return next();
   }
 
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  
-  if (!apiKey || apiKey !== process.env.API_KEY) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'API key required. Please provide x-api-key header or apiKey query parameter.' 
+  const apiKey = req.headers["x-api-key"];
+
+  if (!apiKey || !process.env.API_KEY) {
+    return res.status(401).json({
+      success: false,
+      error:
+        "API key required. Please provide x-api-key header or apiKey query parameter.",
     });
   }
-  
+
+  try {
+    const apiKeyBuffer = Buffer.from(apiKey, "utf8");
+    const envKeyBuffer = Buffer.from(process.env.API_KEY, "utf8");
+
+    if (
+      apiKeyBuffer.length !== envKeyBuffer.length ||
+      !crypto.timingSafeEqual(apiKeyBuffer, envKeyBuffer)
+    ) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid API key.",
+      });
+    }
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      error: "Invalid API key.",
+    });
+  }
+
   next();
 };
 
-app.use('/api', apiKeyAuth);
+app.use("/api", apiKeyAuth);
 
 let aiService = null;
 try {
@@ -82,7 +110,9 @@ app.post("/api/ai/generate-outline", async (req, res) => {
     res.json({ success: true, data: outline });
   } catch (error) {
     console.error("生成大纲失败:", error.message);
-    res.status(500).json({ success: false, error: error.message });
+    res
+      .status(500)
+      .json({ success: false, error: "服务器内部错误，请稍后重试" });
   }
 });
 
@@ -107,7 +137,9 @@ app.post("/api/ai/generate-subsections", async (req, res) => {
     res.json({ success: true, data: subsections });
   } catch (error) {
     console.error("生成子章节失败:", error.message);
-    res.status(500).json({ success: false, error: error.message });
+    res
+      .status(500)
+      .json({ success: false, error: "服务器内部错误，请稍后重试" });
   }
 });
 
@@ -177,7 +209,7 @@ app.post("/api/ai/generate-content", async (req, res) => {
                 res.write(`data: ${JSON.stringify({ content })}\n\n`);
               }
             } catch (e) {
-              // 忽略解析错误
+              console.warn("JSON 解析错误:", e.message);
             }
           }
         }
@@ -196,13 +228,18 @@ app.post("/api/ai/generate-content", async (req, res) => {
       console.error("流式响应错误:", error);
       if (!isEnded) {
         isEnded = true;
+        res.write(
+          `data: ${JSON.stringify({ error: "流式响应错误，请稍后重试" })}\n\n`,
+        );
         res.end();
       }
     });
   } catch (error) {
     console.error("生成内容失败:", error);
     if (!res.headersSent) {
-      res.status(500).json({ success: false, error: error.message });
+      res
+        .status(500)
+        .json({ success: false, error: "服务器内部错误，请稍后重试" });
     }
   }
 });
@@ -438,7 +475,9 @@ ${contextInfo.originalContent || ""}
     res.json({ success: true, data: content });
   } catch (error) {
     console.error("生成内容失败:", error);
-    res.status(500).json({ success: false, error: error.message });
+    res
+      .status(500)
+      .json({ success: false, error: "服务器内部错误，请稍后重试" });
   }
 });
 
@@ -464,7 +503,9 @@ app.post("/api/ai/rewrite", async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    res
+      .status(500)
+      .json({ success: false, error: "服务器内部错误，请稍后重试" });
   }
 });
 
@@ -488,7 +529,9 @@ app.post("/api/ai/quality-check-full", async (req, res) => {
     res.json({ success: true, data: result });
   } catch (error) {
     console.error("质检失败:", error.message);
-    res.status(500).json({ success: false, error: error.message });
+    res
+      .status(500)
+      .json({ success: false, error: "服务器内部错误，请稍后重试" });
   }
 });
 
@@ -520,7 +563,9 @@ app.post("/api/ai/quality-check-single", async (req, res) => {
     res.json({ success: true, data: result });
   } catch (error) {
     console.error("质检失败:", error.message);
-    res.status(500).json({ success: false, error: error.message });
+    res
+      .status(500)
+      .json({ success: false, error: "服务器内部错误，请稍后重试" });
   }
 });
 
@@ -542,6 +587,7 @@ server.on("error", (error) => {
 
 process.on("uncaughtException", (error) => {
   console.error("未捕获的异常:", error);
+  process.exit(1);
 });
 
 process.on("unhandledRejection", (reason, promise) => {

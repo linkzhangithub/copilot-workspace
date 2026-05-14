@@ -1,4 +1,4 @@
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, nextTick, onUnmounted } from "vue";
 import { deepClone } from "../utils/deepClone.js";
 import {
   MAX_CHAPTERS,
@@ -38,7 +38,12 @@ export const useOutlineEditor = (options) => {
       return count;
     });
 
-    return {
+    onUnmounted(() => {
+    document.removeEventListener("mousemove", handleDragMove);
+    document.removeEventListener("mouseup", handleDragEnd);
+  });
+
+  return {
       chapterCount,
       totalSubsections,
       chapterSubsectionCounts,

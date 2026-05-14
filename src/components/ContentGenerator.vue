@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, toRef, nextTick } from "vue";
+import { ref, onMounted, onUnmounted, watch, toRef, nextTick } from "vue";
 import Icon from "./Icon.vue";
 import { cleanTitleMarkdown } from "../utils/stringUtils.js";
 import "../styles/content-generator.css";
@@ -217,6 +217,10 @@ onMounted(() => {
       }
     });
   });
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", checkIsMobile);
 });
 
 watch(

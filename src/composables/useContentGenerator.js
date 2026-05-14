@@ -1,4 +1,4 @@
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, nextTick, onUnmounted } from "vue";
 import { chineseNumbers } from "../constants/chineseNumbers.js";
 import { deepClone } from "../utils/deepClone.js";
 
@@ -33,25 +33,49 @@ export const useContentGenerator = (options) => {
     }
   };
 
+  const typeWriterCancelFns = ref([]);
+
   const typeWriter = async (fullText, onUpdate, speed = 30) => {
     return new Promise((resolve) => {
       let index = 0;
       let currentText = "";
+      let cancelled = false;
+      const timeoutIds = [];
+
       const type = () => {
+        if (cancelled) {
+          timeoutIds.forEach((id) => clearTimeout(id));
+          return;
+        }
+
         if (index < fullText.length) {
           const charsToType = Math.min(3, fullText.length - index);
           currentText += fullText.slice(index, index + charsToType);
           index += charsToType;
           onUpdate(currentText);
           const randomDelay = speed + Math.random() * 20;
-          setTimeout(type, randomDelay);
+          const timeoutId = setTimeout(type, randomDelay);
+          timeoutIds.push(timeoutId);
         } else {
           resolve();
         }
       };
+
+      const cancel = () => {
+        cancelled = true;
+        timeoutIds.forEach((id) => clearTimeout(id));
+      };
+
+      typeWriterCancelFns.value.push(cancel);
       type();
+      resolve.cancel = cancel;
     });
   };
+
+  onUnmounted(() => {
+    typeWriterCancelFns.value.forEach((cancel) => cancel());
+    typeWriterCancelFns.value = [];
+  });
 
   const flatContent = computed(() => {
     const result = [];
