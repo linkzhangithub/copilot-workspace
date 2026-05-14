@@ -86,6 +86,10 @@ export const useOutlineGeneration = (options) => {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
 
       let outlineData = [];
