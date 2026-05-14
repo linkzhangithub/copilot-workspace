@@ -174,8 +174,13 @@ export const useQualityCheckModal = (options) => {
 
     await nextTick();
 
-    await showTotalScore();
-    await showSuggestions();
+    visibleItems.value = [true, true, true, true, true];
+    visibleTotalScore.value = true;
+    visibleSuggestions.value = true;
+    visibleSuggestionItems.value = [true, true, true];
+    progressBarWidth.value = totalScore.value;
+    currentStep.value = 5;
+    displaySuggestions.value = [...suggestions.value];
 
     qualityCheckCompleted.value = true;
   };
