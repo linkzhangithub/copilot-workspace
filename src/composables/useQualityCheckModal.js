@@ -431,12 +431,14 @@ export const useQualityCheckModal = (options) => {
 
   const showTotalScore = async () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
+    if (isQualityCheckCancelled.value) return;
+
     visibleTotalScore.value = true;
     await nextTick();
     scrollToBottom();
 
     const targetWidth = totalScore.value;
-    const step = Math.ceil(targetWidth / 30);
+    const step = Math.max(1, Math.ceil(targetWidth / 30));
     for (let i = 0; i <= targetWidth; i += step) {
       if (isQualityCheckCancelled.value) return;
       progressBarWidth.value = Math.min(i, targetWidth);
