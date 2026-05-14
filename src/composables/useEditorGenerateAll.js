@@ -29,9 +29,9 @@ export const useEditorGenerateAll = (options) => {
       emit("show-toast", "正在处理中，请稍候...", "warning", 1000);
       return;
     }
-    
+
     isProcessing = true;
-    
+
     try {
       if (isGeneratingAll.value && !isPaused.value) {
         isPaused.value = true;
@@ -77,7 +77,6 @@ export const useEditorGenerateAll = (options) => {
         emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
       }
 
-    try {
       for (let i = 0; i < outline.value.length; i++) {
         if (isPaused.value) return;
 
