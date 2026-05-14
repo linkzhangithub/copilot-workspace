@@ -25,6 +25,30 @@ export const useEditorGenerateAll = (options) => {
   };
 
   const handleGenerateAllContent = async () => {
+    if (isGeneratingAll.value && !isPaused.value) {
+      isPaused.value = true;
+      if (generatingSubsectionPath.value) {
+        const [i, j] = generatingSubsectionPath.value;
+        if (
+          outline.value[i] &&
+          outline.value[i].children &&
+          outline.value[i].children[j]
+        ) {
+          outline.value[i].children[j].content = "";
+          outline.value = [...outline.value];
+        }
+        generatingSubsectionPath.value = null;
+      }
+      emit("show-toast", "已暂停生成，点击继续生成", "warning", 2000);
+      return;
+    }
+
+    if (isPaused.value) {
+      isPaused.value = false;
+      emit("show-toast", "继续生成内容...", "info", 2000);
+      return;
+    }
+
     if (isProcessing) {
       emit("show-toast", "正在处理中，请稍候...", "warning", 1000);
       return;
@@ -33,49 +57,25 @@ export const useEditorGenerateAll = (options) => {
     isProcessing = true;
 
     try {
-      if (isGeneratingAll.value && !isPaused.value) {
-        isPaused.value = true;
-        if (generatingSubsectionPath.value) {
-          const [i, j] = generatingSubsectionPath.value;
-          if (
-            outline.value[i] &&
-            outline.value[i].children &&
-            outline.value[i].children[j]
-          ) {
-            outline.value[i].children[j].content = "";
-            outline.value = [...outline.value];
-          }
-          generatingSubsectionPath.value = null;
-        }
-        emit("show-toast", "已暂停生成，点击继续生成", "warning", 2000);
-        isProcessing = false;
-        return;
-      }
+      isGeneratingAll.value = true;
+      hasGeneratedAllContent.value = false;
 
-      if (isPaused.value) {
-        isPaused.value = false;
-        emit("show-toast", "继续生成内容...", "info", 2000);
-      } else {
-        isGeneratingAll.value = true;
-        hasGeneratedAllContent.value = false;
-
-        let emptyCount = 0;
-        for (let i = 0; i < outline.value.length; i++) {
-          const chapter = outline.value[i];
-          if (chapter.children && chapter.children.length > 0) {
-            for (let j = 0; j < chapter.children.length; j++) {
-              const subsection = chapter.children[j];
-              if (!subsection.content) {
-                emptyCount++;
-              }
+      let emptyCount = 0;
+      for (let i = 0; i < outline.value.length; i++) {
+        const chapter = outline.value[i];
+        if (chapter.children && chapter.children.length > 0) {
+          for (let j = 0; j < chapter.children.length; j++) {
+            const subsection = chapter.children[j];
+            if (!subsection.content) {
+              emptyCount++;
             }
           }
         }
-        totalGeneratingCount.value = emptyCount;
-        currentGeneratingIndex.value = 0;
-
-        emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
       }
+      totalGeneratingCount.value = emptyCount;
+      currentGeneratingIndex.value = 0;
+
+      emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
 
       for (let i = 0; i < outline.value.length; i++) {
         if (isPaused.value) return;
