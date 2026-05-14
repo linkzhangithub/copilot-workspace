@@ -144,19 +144,31 @@ export const useContentGenerator = (options) => {
     const s1 = str1.toLowerCase().replace(/\s/g, "");
     const s2 = str2.toLowerCase().replace(/\s/g, "");
     if (s1.length === 0 || s2.length === 0) return 0;
-    let matches = 0;
-    const longer = s1.length > s2.length ? s1 : s2;
-    const shorter = s1.length > s2.length ? s2 : s1;
-    for (let i = 0; i < shorter.length; i++) {
-      if (longer.includes(shorter[i])) matches++;
+
+    const m = s1.length;
+    const n = s2.length;
+    const dp = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0));
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (s1[i - 1] === s2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
     }
-    return matches / longer.length;
+
+    const lcs = dp[m][n];
+    return lcs / Math.max(m, n);
   };
 
   const getDisplayNumber = (path) => {
     if (path.length === 1) return chineseNumbers[path[0]] + "、";
     if (path.length === 2) return "(" + (path[1] + 1) + ")";
-    return path[2] + 1 + ")";
+    return "(" + (path[2] + 1) + ")";
   };
 
   const getOperationDesc = (op) => {
