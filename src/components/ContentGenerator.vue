@@ -1,5 +1,13 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, toRef, nextTick } from "vue";
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  toRef,
+  nextTick,
+} from "vue";
 import Icon from "./Icon.vue";
 import { cleanTitleMarkdown } from "../utils/stringUtils.js";
 import "../styles/content-generator.css";
@@ -71,7 +79,8 @@ const generateSection = async (path) => {
 
   const pathKey = getPathKey(path);
   generatingPath.value = pathKey;
-  
+  console.log("generateSection: generatingPath set to", pathKey);
+
   // 创建 AbortController
   const abortController = new AbortController();
   currentAbortController = abortController;
@@ -79,7 +88,9 @@ const generateSection = async (path) => {
   // 显示Toast提示：正在生成第X章第X小节
   const mainIndex = path[0] + 1;
   const subIndex = path.length > 1 ? path[1] + 1 : null;
-  const positionText = subIndex ? `第${mainIndex}章第${subIndex}小节` : `第${mainIndex}章`;
+  const positionText = subIndex
+    ? `第${mainIndex}章第${subIndex}小节`
+    : `第${mainIndex}章`;
   emit("show-toast", `正在生成${positionText}内容...`, "info", 2000);
 
   const currentSection = getSectionByPath(props.outline, path);
@@ -95,6 +106,10 @@ const generateSection = async (path) => {
   try {
     const contextInfo = buildContextInfo(path, "first_generate");
 
+    console.log(
+      "generateSection: about to call fetch, generatingPath is",
+      generatingPath.value,
+    );
     const response = await fetch("/api/ai/generate-content-simple", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -105,6 +120,10 @@ const generateSection = async (path) => {
       }),
       signal: abortController.signal,
     });
+    console.log(
+      "generateSection: fetch completed, generatingPath is",
+      generatingPath.value,
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -121,14 +140,14 @@ const generateSection = async (path) => {
       await typeWriter(cleanedContent, (partialText) => {
         // 检查是否被中断
         if (generatingPath.value === null) {
-          throw new Error('生成已中断');
+          throw new Error("生成已中断");
         }
         updateContent(partialText);
       });
     }
   } catch (err) {
-    if (err.name === 'AbortError' || err.message === '生成已中断') {
-      console.log('生成被中断');
+    if (err.name === "AbortError" || err.message === "生成已中断") {
+      console.log("生成被中断");
       // 清空内容
       updateContent("");
     } else {
@@ -136,6 +155,7 @@ const generateSection = async (path) => {
       emit("show-toast", "生成失败，请重试", "error", 3000);
     }
   } finally {
+    console.log("generateSection: finally block, clearing generatingPath");
     generatingPath.value = null;
     currentAbortController = null;
   }
@@ -147,7 +167,7 @@ const rewriteSection = async (path, operation) => {
   const pathKey = getPathKey(path);
   operatingPath.value = pathKey;
   currentOperation.value = operation;
-  
+
   // 创建 AbortController
   const abortController = new AbortController();
   currentAbortController = abortController;
@@ -185,14 +205,14 @@ const rewriteSection = async (path, operation) => {
       await typeWriter(result.data, (partialText) => {
         // 检查是否被中断
         if (operatingPath.value === null) {
-          throw new Error('改写已中断');
+          throw new Error("改写已中断");
         }
         updateRewriteContent(partialText);
       });
     }
   } catch (err) {
-    if (err.name === 'AbortError' || err.message === '改写已中断') {
-      console.log('改写被中断');
+    if (err.name === "AbortError" || err.message === "改写已中断") {
+      console.log("改写被中断");
       // 恢复原始内容
       updateRewriteContent(section.content);
     } else {
@@ -260,13 +280,31 @@ const cleanupState = () => {
     currentAbortController.abort();
     currentAbortController = null;
   }
-  
+
   generatingPath.value = null;
   operatingPath.value = null;
   currentOperation.value = "";
 };
 
-defineExpose({ scrollToSection, isGeneratingSingle, cleanupState });
+/**
+ * 检查是否正在生成单个小节
+ */
+const getIsGeneratingSingle = () => {
+  const result = generatingPath.value !== null || operatingPath.value !== null;
+  console.log("getIsGeneratingSingle called:", {
+    generatingPath: generatingPath.value,
+    operatingPath: operatingPath.value,
+    result,
+  });
+  return result;
+};
+
+defineExpose({
+  scrollToSection,
+  isGeneratingSingle,
+  getIsGeneratingSingle,
+  cleanupState,
+});
 
 onMounted(() => {
   checkIsMobile();

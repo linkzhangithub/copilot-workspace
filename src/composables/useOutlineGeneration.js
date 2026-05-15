@@ -187,8 +187,8 @@ export const useOutlineGeneration = (options) => {
       );
     } catch (err) {
       // 如果是被中断的，不显示错误信息
-      if (err.name === 'AbortError') {
-        console.log('大纲生成被中断');
+      if (err.name === "AbortError") {
+        console.log("大纲生成被中断");
         return;
       }
 

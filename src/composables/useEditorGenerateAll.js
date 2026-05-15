@@ -9,10 +9,10 @@ export const useEditorGenerateAll = (options) => {
   const currentGeneratingIndex = ref(0);
   const totalGeneratingCount = ref(0);
   let isProcessing = false;
-  
+
   // AbortController 用于中断 API 请求
   let currentAbortController = null;
-  
+
   // 强制中断标志 - 用于切换项目时立即中断
   let shouldForceStop = false;
 
@@ -35,13 +35,13 @@ export const useEditorGenerateAll = (options) => {
   const cleanupGeneratingState = () => {
     // 设置强制中断标志
     shouldForceStop = true;
-    
+
     // 中断当前正在进行的 API 请求
     if (currentAbortController) {
       currentAbortController.abort();
       currentAbortController = null;
     }
-    
+
     // 清空正在生成的小节内容
     if (generatingSubsectionPath.value) {
       const [i, j] = generatingSubsectionPath.value;
@@ -50,7 +50,7 @@ export const useEditorGenerateAll = (options) => {
         outline.value = [...outline.value];
       }
     }
-    
+
     // 重置所有生成状态
     isGeneratingAll.value = false;
     isPaused.value = false;
@@ -94,7 +94,7 @@ export const useEditorGenerateAll = (options) => {
     }
 
     isProcessing = true;
-    
+
     // 重置强制中断标志
     shouldForceStop = false;
 
@@ -146,7 +146,7 @@ export const useEditorGenerateAll = (options) => {
               try {
                 // 创建新的 AbortController
                 currentAbortController = new AbortController();
-                
+
                 const response = await fetch(
                   "/api/ai/generate-content-simple",
                   {

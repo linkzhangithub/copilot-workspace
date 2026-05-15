@@ -203,7 +203,7 @@ watch(
 const generateOutline = async () => {
   // 重置中断标志
   shouldForceStopOutline = false;
-  
+
   error.value = "";
   loading.value = true;
 
@@ -291,8 +291,8 @@ const generateOutline = async () => {
     );
   } catch (err) {
     // 如果是被中断的，不显示错误信息
-    if (err.name === 'AbortError') {
-      console.log('大纲生成被中断');
+    if (err.name === "AbortError") {
+      console.log("大纲生成被中断");
       return;
     }
 
@@ -379,7 +379,7 @@ const wrappedHandleGenerateAllContent = async () => {
     emit("show-toast", "内容生成中，请稍后再试", "warning", 3000);
     return;
   }
-  
+
   await handleGenerateAllContent();
 };
 
@@ -399,9 +399,19 @@ const scrollToTop = () => {
 const getIsGenerating = () => {
   const gen1 = generatingSubsectionPath.value !== null;
   const gen2 = isGeneratingAll.value && !isPaused.value;
-  const gen3 = contentGeneratorRef.value?.isGeneratingSingle?.value || false;
+  const gen3 = contentGeneratorRef.value?.getIsGeneratingSingle?.() || false;
   const gen4 = loading.value; // 大纲生成中
-  
+
+  console.log("getIsGenerating check:", {
+    gen1, // 一键生成中的小节
+    gen2, // 一键生成状态
+    gen3, // 单个小节生成
+    gen4, // 大纲生成
+    contentGeneratorRef: !!contentGeneratorRef.value,
+    hasGetIsGeneratingSingle:
+      typeof contentGeneratorRef.value?.getIsGeneratingSingle,
+  });
+
   return gen1 || gen2 || gen3 || gen4;
 };
 
@@ -423,20 +433,20 @@ const cleanupOutlineGeneration = () => {
 const handleCleanupGeneratingState = () => {
   // 清理大纲生成的状态
   cleanupOutlineGeneration();
-  
+
   // 清理一键生成的状态
   cleanupGeneratingState();
-  
+
   // 清理ContentGenerator的状态(单个小节生成)
   if (contentGeneratorRef.value?.cleanupState) {
     contentGeneratorRef.value.cleanupState();
   }
 };
 
-defineExpose({ 
-  exportMarkdown, 
+defineExpose({
+  exportMarkdown,
   cleanupGeneratingState: handleCleanupGeneratingState,
-  getIsGenerating
+  getIsGenerating,
 });
 
 onMounted(() => {
@@ -535,13 +545,15 @@ onUnmounted(() => {
         :is-paused="isPaused"
         :generating-subsection-path="generatingSubsectionPath"
         @update:outline="updateOutline"
-        @show-toast="(msg, type, duration) => emit('show-toast', msg, type, duration)"
+        @show-toast="
+          (msg, type, duration) => emit('show-toast', msg, type, duration)
+        "
       />
     </div>
 
     <QualityCheckModal
       ref="qualityCheckModalRef"
-      :projectId="project.id"
+      :projectId="String(project.id)"
       :projectName="project.name"
       :outline="outline"
       :isGeneratingContent="isGeneratingContent"

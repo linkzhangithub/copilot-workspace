@@ -291,7 +291,9 @@ ${forbiddenPoints || "无"}
 子主题：${
           Array.isArray(currentSection.children)
             ? currentSection.children
-                .map((child) => (typeof child === "object" ? child.title : child))
+                .map((child) =>
+                  typeof child === "object" ? child.title : child,
+                )
                 .join("、")
             : "无"
         }
@@ -424,7 +426,9 @@ ${forbiddenPoints || "无"}
 子主题：${
           Array.isArray(currentSection.children)
             ? currentSection.children
-                .map((child) => (typeof child === "object" ? child.title : child))
+                .map((child) =>
+                  typeof child === "object" ? child.title : child,
+                )
                 .join("、")
             : "无"
         }

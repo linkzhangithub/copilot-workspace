@@ -58,14 +58,21 @@ const handleProjectClick = (project) => {
   // 检查是否正在生成内容
   const editor = editorRef.value;
   const isGenerating = editor?.getIsGenerating?.();
-  
+
+  console.log("handleProjectClick:", {
+    hasEditor: !!editor,
+    hasGetIsGenerating: typeof editor?.getIsGenerating,
+    isGenerating,
+    project: project.name,
+  });
+
   if (isGenerating) {
     // 正在生成，先中断并清理状态，显示提示
     if (editor?.cleanupGeneratingState) {
       editor.cleanupGeneratingState();
       showToast("已中断生成", "warning", 2000);
     }
-    
+
     // 然后显示确认弹窗
     pendingProject.value = project;
     showSwitchConfirm.value = true;
@@ -84,7 +91,7 @@ const confirmSwitchProject = () => {
   selectedProject.value = pendingProject.value;
   pendingProject.value = null;
   showSwitchConfirm.value = false;
-  
+
   if (window.innerWidth < 768) {
     sidebarOpen.value = false;
   }
@@ -247,11 +254,15 @@ onUnmounted(() => {
     </main>
 
     <ToastContainer ref="toastRef" />
-    
+
     <!-- 切换项目确认弹窗 -->
     <Transition name="modal-fade">
-      <div v-if="showSwitchConfirm" class="modal-overlay" @click="cancelSwitchProject">
-        <div 
+      <div
+        v-if="showSwitchConfirm"
+        class="modal-overlay"
+        @click="cancelSwitchProject"
+      >
+        <div
           :class="['modal-content', { 'light-mode': currentTheme === 'light' }]"
           @click.stop
         >
@@ -264,8 +275,12 @@ onUnmounted(() => {
             <p class="modal-hint">确定要切换项目吗？</p>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-cancel" @click="cancelSwitchProject">取消</button>
-            <button class="btn btn-confirm" @click="confirmSwitchProject">确认切换</button>
+            <button class="btn btn-cancel" @click="cancelSwitchProject">
+              取消
+            </button>
+            <button class="btn btn-confirm" @click="confirmSwitchProject">
+              确认切换
+            </button>
           </div>
         </div>
       </div>

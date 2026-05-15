@@ -38,12 +38,7 @@ export const useOutlineEditor = (options) => {
       return count;
     });
 
-    onUnmounted(() => {
-    document.removeEventListener("mousemove", handleDragMove);
-    document.removeEventListener("mouseup", handleDragEnd);
-  });
-
-  return {
+    return {
       chapterCount,
       totalSubsections,
       chapterSubsectionCounts,
@@ -419,6 +414,12 @@ export const useOutlineEditor = (options) => {
   };
 
   const getDisplayNumber = (path) => path.map((p) => p + 1).join(".");
+
+  // 清理事件监听器
+  onUnmounted(() => {
+    document.removeEventListener("mousemove", handleDragMove);
+    document.removeEventListener("mouseup", handleDragEnd);
+  });
 
   return {
     editingPath,
