@@ -21,7 +21,7 @@ const props = defineProps({
   generatingSubsectionPath: { type: Array, default: null },
 });
 
-const emit = defineEmits(["update:outline", "show-toast"]);
+const emit = defineEmits(["update:outline", "show-toast", "generating-state-change"]);
 
 // AbortController 用于中断单个小节生成
 let currentAbortController = null;
@@ -78,8 +78,15 @@ const generateSection = async (path) => {
   if (operatingPath.value !== null) return;
 
   const pathKey = getPathKey(path);
+  console.log("[ContentGenerator] Before setting generatingPath:", {
+    currentGeneratingPath: generatingPath.value,
+    newPath: pathKey,
+  });
   generatingPath.value = pathKey;
-  console.log("generateSection: generatingPath set to", pathKey);
+  console.log("[ContentGenerator] After setting generatingPath:", {
+    generatingPath: generatingPath.value,
+    isGeneratingSingle: generatingPath.value !== null || operatingPath.value !== null,
+  });
 
   // 创建 AbortController
   const abortController = new AbortController();
@@ -270,6 +277,21 @@ const stopDrag = () => {
 const isGeneratingSingle = computed(() => {
   return generatingPath.value !== null || operatingPath.value !== null;
 });
+
+// 监听生成状态变化，通知父组件
+watch(
+  isGeneratingSingle,
+  (newValue, oldValue) => {
+    console.log("[ContentGenerator] isGeneratingSingle changed:", {
+      oldValue,
+      newValue,
+      generatingPath: generatingPath.value,
+      operatingPath: operatingPath.value,
+    });
+    emit("generating-state-change", newValue);
+  },
+  { immediate: true }
+);
 
 /**
  * 清理生成状态

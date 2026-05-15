@@ -13,6 +13,7 @@ const { currentTheme, toggleTheme } = useTheme();
 const toastRef = ref(null);
 const showSwitchConfirm = ref(false);
 const pendingProject = ref(null);
+const isGenerating = ref(false); // 全局生成状态
 
 const showToast = (message, type = "info", duration = 3000) => {
   if (toastRef.value) {
@@ -55,23 +56,22 @@ const saveProjects = () => {
 };
 
 const handleProjectClick = (project) => {
-  // 检查是否正在生成内容
-  const editor = editorRef.value;
-  const isGenerating = editor?.getIsGenerating?.();
-
   console.log("handleProjectClick:", {
-    hasEditor: !!editor,
-    hasGetIsGenerating: typeof editor?.getIsGenerating,
-    isGenerating,
+    isGenerating: isGenerating.value,
+    hasEditor: !!editorRef.value,
     project: project.name,
   });
 
-  if (isGenerating) {
+  if (isGenerating.value) {
     // 正在生成，先中断并清理状态，显示提示
+    const editor = editorRef.value;
     if (editor?.cleanupGeneratingState) {
       editor.cleanupGeneratingState();
       showToast("已中断生成", "warning", 2000);
     }
+
+    // 重置生成状态
+    isGenerating.value = false;
 
     // 然后显示确认弹窗
     pendingProject.value = project;
@@ -140,6 +140,15 @@ const handleDeleteProject = (id) => {
   if (selectedProject.value && selectedProject.value.id === id) {
     selectedProject.value = null;
   }
+};
+
+// 处理生成状态变化
+const handleGeneratingStateChange = (generating) => {
+  console.log("[App] Received generating-state-change:", {
+    generating,
+    previousState: isGenerating.value,
+  });
+  isGenerating.value = generating;
 };
 
 const checkScreen = () => {
@@ -242,6 +251,7 @@ onUnmounted(() => {
           :project="selectedProject"
           @update-project="handleUpdateProject"
           @show-toast="showToast"
+          @generating-state-change="handleGeneratingStateChange"
         />
         <div v-else class="empty-state">
           <div class="empty-icon">

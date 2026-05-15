@@ -26,7 +26,7 @@ const props = defineProps({
   project: { type: Object, required: true },
 });
 
-const emit = defineEmits(["update-project", "show-toast"]);
+const emit = defineEmits(["update-project", "show-toast", "generating-state-change"]);
 
 const {
   outline,
@@ -77,8 +77,15 @@ const editingTitle = ref("");
 const editTitleWrapper = ref(null);
 const titleInput = ref(null);
 const contentGeneratorRef = ref(null);
+const outlineEditorRef = ref(null);
 const editorRef = ref(null);
 const showBackToTop = ref(false);
+
+// 单个小节生成状态（由 ContentGenerator 通过事件通知）
+const isContentGenerating = ref(false);
+
+// 大纲编辑器生成子章节状态（由 OutlineEditor 通过事件通知）
+const isOutlineEditorGenerating = ref(false);
 
 // 大纲生成中断控制
 let outlineAbortController = null;
@@ -87,6 +94,19 @@ let shouldForceStopOutline = false;
 const isGeneratingContent = computed(() => {
   if (generatingSubsectionPath.value !== null) return true;
   if (isGeneratingAll.value && !isPaused.value) return true;
+  return false;
+});
+
+// 综合生成状态（包括大纲生成、一键生成、单个小节生成、大纲编辑器生成）
+const isAnyGenerating = computed(() => {
+  // 大纲生成中
+  if (loading.value) return true;
+  // 一键生成中
+  if (isGeneratingAll.value && !isPaused.value) return true;
+  // 单个小节生成中（通过事件通知的状态，更可靠）
+  if (isContentGenerating.value) return true;
+  // 大纲编辑器生成子章节中
+  if (isOutlineEditorGenerating.value) return true;
   return false;
 });
 
@@ -189,6 +209,15 @@ const saveToStorageDebounced = () => {
 };
 
 watch(outline, saveToStorageDebounced, { deep: true });
+
+// 监听生成状态变化，通知父组件
+watch(
+  isAnyGenerating,
+  (newValue) => {
+    emit("generating-state-change", newValue);
+  },
+  { immediate: true }
+);
 
 watch(
   () => outline.value.length,
@@ -428,7 +457,7 @@ const cleanupOutlineGeneration = () => {
 };
 
 /**
- * 包装的清理函数 - 同时清理一键生成、单个生成和大纲生成的状态
+ * 包装的清理函数 - 同时清理一键生成、单个生成、大纲编辑器生成和大纲生成的状态
  */
 const handleCleanupGeneratingState = () => {
   // 清理大纲生成的状态
@@ -441,6 +470,39 @@ const handleCleanupGeneratingState = () => {
   if (contentGeneratorRef.value?.cleanupState) {
     contentGeneratorRef.value.cleanupState();
   }
+
+  // 清理OutlineEditor的状态(生成子章节)
+  if (outlineEditorRef.value?.cleanupState) {
+    outlineEditorRef.value.cleanupState();
+  }
+};
+
+/**
+ * 处理 ContentGenerator 的生成状态变化
+ */
+const handleContentGeneratorStateChange = (generating) => {
+  console.log("[Editor] Received generating-state-change from ContentGenerator:", {
+    generating,
+    isContentGenerating: isContentGenerating.value,
+  });
+  // 更新本地状态
+  isContentGenerating.value = generating;
+  // 直接传递给 App.vue，让全局状态保持最新
+  emit("generating-state-change", generating);
+};
+
+/**
+ * 处理 OutlineEditor 的生成状态变化
+ */
+const handleOutlineEditorStateChange = (generating) => {
+  console.log("[Editor] Received generating-state-change from OutlineEditor:", {
+    generating,
+    isOutlineEditorGenerating: isOutlineEditorGenerating.value,
+  });
+  // 更新本地状态
+  isOutlineEditorGenerating.value = generating;
+  // 直接传递给 App.vue，让全局状态保持最新
+  emit("generating-state-change", generating);
 };
 
 defineExpose({
@@ -523,6 +585,7 @@ onUnmounted(() => {
 
       <OutlineEditor
         v-if="outline.length > 0"
+        ref="outlineEditorRef"
         :outline="outline"
         :has-generated-all-content="hasGeneratedAllContent"
         :is-generating-all="isGeneratingAll"
@@ -534,6 +597,7 @@ onUnmounted(() => {
         "
         @generate-all-content="wrappedHandleGenerateAllContent"
         @scroll-to-section="handleScrollToSection"
+        @generating-state-change="handleOutlineEditorStateChange"
       />
 
       <ContentGenerator
@@ -548,6 +612,7 @@ onUnmounted(() => {
         @show-toast="
           (msg, type, duration) => emit('show-toast', msg, type, duration)
         "
+        @generating-state-change="handleContentGeneratorStateChange"
       />
     </div>
 

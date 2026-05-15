@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, toRef } from "vue";
+import { ref, onMounted, onUnmounted, toRef, watch } from "vue";
 import Icon from "./Icon.vue";
 import "../styles/outline-editor.css";
 import { cleanTitleNumber } from "../utils/stringUtils.js";
@@ -23,9 +23,13 @@ const emit = defineEmits([
   "show-toast",
   "generate-all-content",
   "scroll-to-section",
+  "generating-state-change",
 ]);
 
 const isMobile = ref(false);
+
+// AbortController 用于中断 API 请求
+let currentAbortController = null;
 
 const {
   editingPath,
@@ -62,6 +66,20 @@ const {
   emit,
 });
 
+// 监听生成状态变化，通知父组件
+watch(
+  generatingPath,
+  (newValue) => {
+    const isGenerating = newValue !== null;
+    console.log("[OutlineEditor] generatingPath changed:", {
+      generatingPath: newValue,
+      isGenerating,
+    });
+    emit("generating-state-change", isGenerating);
+  },
+  { immediate: true }
+);
+
 const addSubSectionByPath = async (path, event) => {
   event.stopPropagation();
 
@@ -73,6 +91,10 @@ const addSubSectionByPath = async (path, event) => {
 
   const pathKey = getPathKey(path);
   generatingPath.value = pathKey;
+
+  // 创建 AbortController
+  const abortController = new AbortController();
+  currentAbortController = abortController;
 
   try {
     const currentSection = getSectionByPath(path);
@@ -92,6 +114,7 @@ const addSubSectionByPath = async (path, event) => {
         topic: currentSection.title,
         existingTitles: Array.from(existingTitles),
       }),
+      signal: abortController.signal,
     });
 
     const result = await response.json();
@@ -144,6 +167,12 @@ const addSubSectionByPath = async (path, event) => {
       }
     }
   } catch (err) {
+    if (err.name === "AbortError") {
+      console.log("生成子章节被中断");
+      // 被中断，不添加任何子章节
+      return;
+    }
+    
     console.error("生成子章节失败:", err);
     const section = getSectionByPath(path);
     const fallbackSections = [
@@ -176,6 +205,7 @@ const addSubSectionByPath = async (path, event) => {
     }
   } finally {
     generatingPath.value = null;
+    currentAbortController = null;
   }
 };
 
@@ -248,6 +278,24 @@ onUnmounted(() => {
   window.removeEventListener("resize", checkIsMobile);
   document.removeEventListener("mousemove", handleDragMove);
   document.removeEventListener("mouseup", handleDragEnd);
+});
+
+/**
+ * 清理生成状态 - 用于切换项目时中断生成
+ */
+const cleanupState = () => {
+  // 中断 API 请求
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+
+  // 清空生成路径
+  generatingPath.value = null;
+};
+
+defineExpose({
+  cleanupState,
 });
 </script>
 
