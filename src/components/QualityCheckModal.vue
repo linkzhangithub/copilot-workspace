@@ -64,9 +64,9 @@ defineExpose({
 </script>
 
 <template>
-  <div v-if="showQualityCheck" class="quality-check-modal">
-    <div class="modal-overlay" @click="closeQualityCheck"></div>
-    <div class="modal-content">
+  <Teleport to="body">
+    <div v-if="showQualityCheck" class="quality-modal-overlay">
+      <div class="quality-modal-content">
       <div class="modal-header">
         <h2>智能文章质检</h2>
         <button class="close-btn" @click="closeQualityCheck">
@@ -204,4 +204,5 @@ defineExpose({
       </div>
     </div>
   </div>
+  </Teleport>
 </template>

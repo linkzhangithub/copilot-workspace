@@ -190,6 +190,11 @@ const saveToStorageWithIds = () => {
 watch(
   () => props.project.id,
   () => {
+    // 关闭质检弹窗
+    if (qualityCheckModalRef.value?.closeQualityCheck) {
+      qualityCheckModalRef.value.closeQualityCheck();
+    }
+
     outline.value = [];
     hasGeneratedOutline.value = false;
     hasGeneratedAllContent.value = false;
