@@ -117,6 +117,14 @@ export const useEditorGenerateAll = (options) => {
       totalGeneratingCount.value = emptyCount;
       currentGeneratingIndex.value = 0;
 
+      // 如果没有空小节，直接提示并返回
+      if (emptyCount === 0) {
+        isProcessing = false;
+        isGeneratingAll.value = false;
+        emit("show-toast", "所有小节已有内容，可手动调整或清空后重试", "info", 3000);
+        return;
+      }
+
       if (!isResuming) {
         emit("show-toast", "开始生成所有小节内容，请稍候...", "info", 3000);
       }

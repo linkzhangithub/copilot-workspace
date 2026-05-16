@@ -77,7 +77,7 @@ watch(
     });
     emit("generating-state-change", isGenerating);
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 const addSubSectionByPath = async (path, event) => {
@@ -172,7 +172,7 @@ const addSubSectionByPath = async (path, event) => {
       // 被中断，不添加任何子章节
       return;
     }
-    
+
     console.error("生成子章节失败:", err);
     const section = getSectionByPath(path);
     const fallbackSections = [
@@ -222,10 +222,11 @@ const toggleAllSections = () => {
 };
 
 const generateAllContent = () => {
-  if (props.hasGeneratedAllContent) {
-    emit("show-toast", "文章内容已生成，可手动调整", "warning", 3000);
-    return;
-  }
+  // 移除粗糙的标志位检查，改为由父组件进行精准的空内容扫描
+  // if (props.hasGeneratedAllContent) {
+  //   emit("show-toast", "文章内容已生成，可手动调整", "warning", 3000);
+  //   return;
+  // }
 
   const hasSubsections = props.outline.some(
     (chapter) => chapter.children && chapter.children.length > 0,

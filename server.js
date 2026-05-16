@@ -5,6 +5,7 @@ import cors from "cors";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import AIService from "./services/aiService.js";
+import RewriteService from "./services/rewriteService.js";
 import { createAiRoutes } from "./routes/ai.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 
@@ -108,18 +109,20 @@ app.use("/api", apiKeyAuth);
 
 // 初始化 AI 服务
 let aiService = null;
+let rewriteService = null;
 try {
   aiService = new AIService();
+  rewriteService = new RewriteService();
   if (!isProduction) {
-    console.log("AIService 初始化成功");
+    console.log("AI Services 初始化成功");
   }
 } catch (error) {
-  console.error("AIService 初始化失败:", error.message);
+  console.error("AI Services 初始化失败:", error.message);
   process.exit(1);
 }
 
 // 挂载路由
-app.use("/api/ai", createAiRoutes(aiService));
+app.use("/api/ai", createAiRoutes(aiService, rewriteService));
 app.use(healthRoutes);
 
 // 启动服务器

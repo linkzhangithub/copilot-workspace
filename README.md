@@ -122,19 +122,31 @@ fetch('https://your-domain.com/api/ai/generate-outline', {
 - **后端**: Express + 智谱 AI API
 - **存储**: localStorage（本地项目数据）
 
+## 🏗️ 架构设计
+
+本项目采用**模块化**的后端架构，将 AI 交互逻辑进行了清晰的职责划分：
+
+- **Prompt 统一管理** (`services/prompts.js`): 所有 AI 提示词模板集中管理，支持动态参数注入。
+- **生成服务** (`services/aiService.js`): 负责大纲生成、正文流式创作等“从无到有”的逻辑。
+- **优化服务** (`services/rewriteService.js`): 负责润色、扩写、缩写及文章质检等“从有到优”的逻辑。
+
+这种设计不仅提升了代码的可维护性，也为后续的 Prompt 调优和 A/B 测试提供了便利。
+
 ## 项目结构
 
 ```
 copilot-workspace/
 ├── src/                 # 前端源码
-│   ├── components/      # Vue 组件
-│   ├── composables/     # 组合式函数
+│   ├── components/      # Vue 组件（按功能分组）
+│   ├── composables/     # 组合式函数（逻辑复用）
 │   └── App.vue         # 根组件
 ├── services/           # 后端服务
-│   └── aiService.js    # AI 服务封装
-├── server.js           # Express 服务器
-├── .env.example        # 环境变量示例
-└── package.json        # 项目配置
+│   ├── prompts.js      # AI 提示词管理中心
+│   ├── aiService.js    # 内容生成服务
+│   └── rewriteService.js # 内容优化与质检服务
+├── routes/             # API 路由定义
+├── server.js           # Express 服务器入口
+└── .env                # 环境变量配置
 ```
 
 ## 常见问题

@@ -21,7 +21,11 @@ const props = defineProps({
   generatingSubsectionPath: { type: Array, default: null },
 });
 
-const emit = defineEmits(["update:outline", "show-toast", "generating-state-change"]);
+const emit = defineEmits([
+  "update:outline",
+  "show-toast",
+  "generating-state-change",
+]);
 
 // AbortController 用于中断单个小节生成
 let currentAbortController = null;
@@ -85,7 +89,8 @@ const generateSection = async (path) => {
   generatingPath.value = pathKey;
   console.log("[ContentGenerator] After setting generatingPath:", {
     generatingPath: generatingPath.value,
-    isGeneratingSingle: generatingPath.value !== null || operatingPath.value !== null,
+    isGeneratingSingle:
+      generatingPath.value !== null || operatingPath.value !== null,
   });
 
   // 创建 AbortController
@@ -169,6 +174,12 @@ const generateSection = async (path) => {
 };
 
 const rewriteSection = async (path, operation) => {
+  // 统一拦截逻辑：如果正在一键生成或单个生成，则拒绝
+  if ((props.isGeneratingAll && !props.isPaused) || props.generatingSubsectionPath !== null) {
+    emit("show-toast", "内容生成中，请稍后再试", "warning", 3000);
+    return;
+  }
+
   if (operatingPath.value !== null) return;
 
   const pathKey = getPathKey(path);
@@ -290,7 +301,7 @@ watch(
     });
     emit("generating-state-change", newValue);
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 /**

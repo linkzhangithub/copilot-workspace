@@ -26,7 +26,11 @@ const props = defineProps({
   project: { type: Object, required: true },
 });
 
-const emit = defineEmits(["update-project", "show-toast", "generating-state-change"]);
+const emit = defineEmits([
+  "update-project",
+  "show-toast",
+  "generating-state-change",
+]);
 
 const {
   outline,
@@ -221,7 +225,7 @@ watch(
   (newValue) => {
     emit("generating-state-change", newValue);
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 watch(
@@ -486,10 +490,13 @@ const handleCleanupGeneratingState = () => {
  * 处理 ContentGenerator 的生成状态变化
  */
 const handleContentGeneratorStateChange = (generating) => {
-  console.log("[Editor] Received generating-state-change from ContentGenerator:", {
-    generating,
-    isContentGenerating: isContentGenerating.value,
-  });
+  console.log(
+    "[Editor] Received generating-state-change from ContentGenerator:",
+    {
+      generating,
+      isContentGenerating: isContentGenerating.value,
+    },
+  );
   // 更新本地状态
   isContentGenerating.value = generating;
   // 直接传递给 App.vue，让全局状态保持最新
@@ -626,7 +633,7 @@ onUnmounted(() => {
       :projectId="String(project.id)"
       :projectName="project.name"
       :outline="outline"
-      :isGeneratingContent="isGeneratingContent"
+      :isGeneratingContent="(isGeneratingAll && !isPaused) || isContentGenerating || isOutlineEditorGenerating"
       :fullMarkdown="fullMarkdown"
       @show-toast="
         (message, type, duration) => emit('show-toast', message, type, duration)
