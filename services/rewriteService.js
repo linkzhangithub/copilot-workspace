@@ -99,6 +99,8 @@ class RewriteService {
       const message = response.data.choices[0]?.message;
       let result = message?.content || message?.reasoning_content || "";
 
+      console.log("[QualityCheck] Raw AI Response:", result);
+
       // 清理并解析 JSON
       result = result
         .replace(/```json\s*/gi, "")
@@ -110,27 +112,77 @@ class RewriteService {
         result = result.substring(jsonStart, jsonEnd + 1);
       }
 
-      const evaluations = JSON.parse(result);
+      let evaluations;
+      try {
+        evaluations = JSON.parse(result);
+        console.log("[QualityCheck] Parsed JSON:", evaluations);
+      } catch (e) {
+        console.error("[QualityCheck] JSON Parse Error:", e);
+        // 如果解析失败，返回一个默认结构，防止前端崩溃
+        return {
+          success: true,
+          data: {
+            structureScore: 0, contentScore: 0, logicScore: 0,
+            qualityScore: 0, clarityScore: 0, totalScore: 0,
+            suggestions: ["AI 返回格式异常，请重试"]
+          }
+        };
+      }
 
-      // 确保分数在合理范围内
-      [
+      // 智能提取分数：处理 AI 可能返回的不同嵌套结构
+      const getScore = (obj, key) => {
+        if (typeof obj[key] === 'number') return obj[key];
+        if (obj.scores && typeof obj.scores[key] === 'number') return obj.scores[key];
+        if (obj.evaluations && typeof obj.evaluations[key] === 'number') return obj.evaluations[key];
+        // 尝试匹配不带 Score 后缀的键
+        const shortKey = key.replace('Score', '');
+        if (typeof obj[shortKey] === 'number') return obj[shortKey];
+        if (obj.scores && typeof obj.scores[shortKey] === 'number') return obj.scores[shortKey];
+        return 0;
+      };
+
+      const scoreKeys = [
         "structureScore",
         "contentScore",
         "logicScore",
         "qualityScore",
         "clarityScore",
-      ].forEach((key) => {
-        evaluations[key] = Math.min(20, Math.max(0, evaluations[key] || 0));
+      ];
+
+      const normalizedScores = {};
+      scoreKeys.forEach((key) => {
+        normalizedScores[key] = Math.min(20, Math.max(0, getScore(evaluations, key)));
       });
 
-      evaluations.totalScore =
-        (evaluations.structureScore || 0) +
-        (evaluations.contentScore || 0) +
-        (evaluations.logicScore || 0) +
-        (evaluations.qualityScore || 0) +
-        (evaluations.clarityScore || 0);
+      // 确保建议字段存在并格式化
+      let suggestions = [];
+      if (Array.isArray(evaluations.suggestions)) {
+        suggestions = evaluations.suggestions;
+      } else if (evaluations.evaluations?.suggestions) {
+        suggestions = evaluations.evaluations.suggestions;
+      }
 
-      return evaluations;
+      // 如果 AI 没给总分，我们手动算一下
+      const totalScore = evaluations.totalScore || Object.values(normalizedScores).reduce((a, b) => a + b, 0);
+
+      // 提取五个维度的评价文本
+      const dimensionTexts = {
+        structure: evaluations.structure || "",
+        content: evaluations.content || "",
+        logic: evaluations.logic || "",
+        quality: evaluations.quality || "",
+        clarity: evaluations.clarity || ""
+      };
+
+      return {
+        success: true,
+        data: {
+          ...dimensionTexts,
+          ...normalizedScores,
+          totalScore,
+          suggestions
+        }
+      };
     } catch (error) {
       console.error("质检失败:", error);
       throw new Error("质检失败: " + error.message);

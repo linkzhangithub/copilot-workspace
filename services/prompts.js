@@ -62,13 +62,58 @@ export const getQualityCheckPrompt = (topic, content) => `
 主题：${topic}
 内容：${content}
 
-请从以下五个维度进行评价（每个维度满分 20 分）：
-1. 大纲结构 (structure)
-2. 章节内容 (content)
-3. 逻辑严密性 (logic)
-4. 内容质量 (quality)
-5. 表达清晰度 (clarity)
+请从以下五个维度进行评价（每个维度满分 20 分），并给出简短的评价文字（每项不超过50字）：
+1. 大纲结构 (structure + structureScore)
+2. 章节内容 (content + contentScore)
+3. 逻辑严密性 (logic + logicScore)
+4. 内容质量 (quality + qualityScore)
+5. 表达清晰度 (clarity + clarityScore)
 
 最后给出 3 条具体的改进建议。
-返回纯 JSON 格式，包含 scores, evaluations 和 suggestions 字段。
+
+【建议格式要求 - 非常重要】
+每条建议必须是一个对象，包含以下 5 个字段：
+- category: 分类（结构/内容/逻辑/表达/质量）
+- priority: 优先级数字（1/2/3）
+- issue: 具体问题描述（20-30字）
+- suggestion: 改进建议（20-30字）
+- example: 修改示例或参考（可选，20-30字）
+
+【重要】你必须严格返回以下 JSON 格式，不要包含任何 Markdown 标记或额外文字：
+{
+  "structure": "结构评价文字...",
+  "structureScore": 15,
+  "content": "内容评价文字...",
+  "contentScore": 18,
+  "logic": "逻辑评价文字...",
+  "logicScore": 16,
+  "quality": "质量评价文字...",
+  "qualityScore": 17,
+  "clarity": "表达评价文字...",
+  "clarityScore": 19,
+  "totalScore": 85,
+  "suggestions": [
+    {
+      "category": "结构",
+      "priority": 1,
+      "issue": "具体问题描述",
+      "suggestion": "改进建议",
+      "example": "修改示例（可选）"
+    },
+    {
+      "category": "内容",
+      "priority": 2,
+      "issue": "具体问题描述",
+      "suggestion": "改进建议",
+      "example": "修改示例（可选）"
+    },
+    {
+      "category": "逻辑",
+      "priority": 3,
+      "issue": "具体问题描述",
+      "suggestion": "改进建议",
+      "example": "修改示例（可选）"
+    }
+  ]
+}
 `;

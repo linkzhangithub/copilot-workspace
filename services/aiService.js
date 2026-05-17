@@ -16,7 +16,17 @@ class AIService {
     const messages = [
       {
         role: "system",
-        content: getOutlinePrompt(topic),
+        content: "你是一位专业的写作导师，擅长构建逻辑严密、层次分明的文章大纲。",
+      },
+      {
+        role: "user",
+        content: `请为以下主题生成一个结构清晰的大纲：${topic}
+
+要求：
+1. 包含 4-6 个主要章节
+2. 每个章节下包含 2-3 个小节
+3. 返回纯 JSON 格式，不要包含 Markdown 代码块标记
+4. 格式示例：[{"title": "第一章", "children": ["小节1", "小节2"]}]`,
       },
     ];
 

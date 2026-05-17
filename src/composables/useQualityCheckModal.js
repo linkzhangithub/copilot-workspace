@@ -538,6 +538,10 @@ export const useQualityCheckModal = (options) => {
         }
       }
 
+      // 更新 hasIssue 和 hasExample 标志
+      displaySuggestion.hasIssue = !!displaySuggestion.issue;
+      displaySuggestion.hasExample = !!displaySuggestion.example;
+
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
   };

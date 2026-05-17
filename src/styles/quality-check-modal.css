@@ -127,7 +127,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 140px;
+  min-width: 100px;
 }
 
 .quality-icon {

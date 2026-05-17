@@ -47,7 +47,13 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ 
+  type: ['application/json', 'application/*+json'],
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 速率限制配置
 const limiter = rateLimit({
