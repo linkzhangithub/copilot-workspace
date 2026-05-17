@@ -63,11 +63,24 @@ export const getQualityCheckPrompt = (topic, content) => `
 内容：${content}
 
 请从以下五个维度进行评价（每个维度满分 20 分），并给出简短的评价文字（每项不超过50字）：
+
+【评分标准】
+- 17-20分：优秀，无需改进
+- 13-16分：良好，可小幅优化
+- 9-12分：中等，需要改进
+- 5-8分：较差，需要大幅改进
+- 0-4分：很差，需要重写
+
 1. 大纲结构 (structure + structureScore)
+   - 检查章节划分是否合理、层次是否清晰、结构是否完整
 2. 章节内容 (content + contentScore)
+   - 检查内容是否充实、是否有价值、是否覆盖全面
 3. 逻辑严密性 (logic + logicScore)
+   - 检查论证是否严密、逻辑是否连贯、推理是否合理
 4. 内容质量 (quality + qualityScore)
+   - 检查观点是否明确、论据是否充分、深度是否足够
 5. 表达清晰度 (clarity + clarityScore)
+   - 检查语言是否流畅、表达是否清晰、用词是否准确
 
 最后给出 3 条具体的改进建议。
 
@@ -82,16 +95,16 @@ export const getQualityCheckPrompt = (topic, content) => `
 【重要】你必须严格返回以下 JSON 格式，不要包含任何 Markdown 标记或额外文字：
 {
   "structure": "结构评价文字...",
-  "structureScore": 15,
+  "structureScore": 根据实际评估给出的分数,
   "content": "内容评价文字...",
-  "contentScore": 18,
+  "contentScore": 根据实际评估给出的分数,
   "logic": "逻辑评价文字...",
-  "logicScore": 16,
+  "logicScore": 根据实际评估给出的分数,
   "quality": "质量评价文字...",
-  "qualityScore": 17,
+  "qualityScore": 根据实际评估给出的分数,
   "clarity": "表达评价文字...",
-  "clarityScore": 19,
-  "totalScore": 85,
+  "clarityScore": 根据实际评估给出的分数,
+  "totalScore": 五个维度分数之和,
   "suggestions": [
     {
       "category": "结构",
