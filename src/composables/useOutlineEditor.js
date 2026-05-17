@@ -241,26 +241,53 @@ export const useOutlineEditor = (options) => {
     editingPath.value = null;
   };
 
+  // 辅助函数：兼容鼠标和触摸事件的 clientY
+  const getClientY = (event) => {
+    return event.touches ? event.touches[0].clientY : event.clientY;
+  };
+
+  // 跟踪当前拖拽类型（鼠标或触摸）
+  let isTouchDrag = false;
+
   const handleDragStart = (path, event) => {
     if (isDragging.value) return;
+    
+    // 检测是否为触摸事件
+    isTouchDrag = !!event.touches;
+    
     collapseAll();
     dragIndex.value = path[0];
     originalDragIndex.value = path[0];
     localOutline.value = deepClone(outline.value);
     nextTick(() => {
-      dragStartY.value = event.clientY;
+      dragStartY.value = getClientY(event);
       currentDragY.value = 0;
       isDragging.value = true;
     });
-    document.addEventListener("mousemove", handleDragMove);
-    document.addEventListener("mouseup", handleDragEnd);
+    
+    // 根据事件类型注册对应的监听器
+    if (isTouchDrag) {
+      document.addEventListener("touchmove", handleDragMove, { passive: false });
+      document.addEventListener("touchend", handleDragEnd);
+      document.addEventListener("touchcancel", handleDragEnd);
+    } else {
+      document.addEventListener("mousemove", handleDragMove);
+      document.addEventListener("mouseup", handleDragEnd);
+    }
+    
     event.preventDefault();
     event.stopPropagation();
   };
 
   const handleDragMove = (event) => {
     if (!isDragging.value || dragIndex.value === -1) return;
-    const deltaY = event.clientY - dragStartY.value;
+    
+    // 触摸事件中阻止默认行为（防止页面滚动）
+    if (isTouchDrag) {
+      event.preventDefault();
+    }
+    
+    const deltaY = getClientY(event) - dragStartY.value;
     const listRect = outlineListRef.value?.getBoundingClientRect();
     if (!listRect) return;
     const items = document.querySelectorAll(".outline-item-wrapper-level-0");
@@ -318,8 +345,18 @@ export const useOutlineEditor = (options) => {
 
   const handleDragEnd = () => {
     if (!isDragging.value) return;
-    document.removeEventListener("mousemove", handleDragMove);
-    document.removeEventListener("mouseup", handleDragEnd);
+    
+    // 根据拖拽类型移除对应的监听器
+    if (isTouchDrag) {
+      document.removeEventListener("touchmove", handleDragMove);
+      document.removeEventListener("touchend", handleDragEnd);
+      document.removeEventListener("touchcancel", handleDragEnd);
+    } else {
+      document.removeEventListener("mousemove", handleDragMove);
+      document.removeEventListener("mouseup", handleDragEnd);
+    }
+    
+    isTouchDrag = false;
 
     if (localOutline.value.length > 0) {
       let targetPosition = originalDragIndex.value;

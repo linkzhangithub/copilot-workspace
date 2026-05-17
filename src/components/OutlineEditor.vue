@@ -346,6 +346,7 @@ defineExpose({
             <div
               class="outline-drag-handle"
               @mousedown="handleDragStart(item.path, $event)"
+              @touchstart.prevent="handleDragStart(item.path, $event)"
             >
               <Icon name="GripVertical" :size="18" />
             </div>
@@ -554,6 +555,7 @@ defineExpose({
   transition: all 0.2s ease;
   border-radius: 6px;
   flex-shrink: 0;
+  touch-action: none; /* 防止浏览器默认触摸行为 */
 }
 
 .outline-drag-handle:hover {
