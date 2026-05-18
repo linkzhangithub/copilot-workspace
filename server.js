@@ -52,13 +52,15 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json({ 
-  type: ['application/json', 'application/*+json'],
-  verify: (req, res, buf) => {
-    req.rawBody = buf;
-  }
-}));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(
+  express.json({
+    type: ["application/json", "application/*+json"],
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // 速率限制配置
 const limiter = rateLimit({
@@ -138,22 +140,22 @@ app.use(healthRoutes);
 
 // 生产环境：提供前端静态文件
 if (isProduction) {
-  const distPath = path.join(__dirname, 'dist');
+  const distPath = path.join(__dirname, "dist");
   if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
-    
+
     // SPA 路由支持：所有非 API 请求返回 index.html
-    app.get('*', (req, res, next) => {
-      if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (req, res, next) => {
+      if (!req.path.startsWith("/api")) {
+        res.sendFile(path.join(distPath, "index.html"));
       } else {
         next();
       }
     });
-    
-    console.log('✅ 前端静态文件服务已启用');
+
+    console.log("✅ 前端静态文件服务已启用");
   } else {
-    console.warn('⚠️  dist 目录不存在，请先运行 npm run build');
+    console.warn("⚠️  dist 目录不存在，请先运行 npm run build");
   }
 }
 
@@ -187,8 +189,5 @@ process.on("unhandledRejection", (reason, promise) => {
   // 这样单个请求失败不会影响整个服务
 });
 
-// 云函数 Web 函数入口点（腾讯云 SCF）
-export const handler = async (event, context) => {
-  const tencentCloud = await import('tencentcloud-serverless-nodejs');
-  return tencentCloud.proxyRouter(event, context, app);
-};
+// 导出 Express 应用（供 Node Functions 使用）
+export default app;
