@@ -1,14 +1,13 @@
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import AIService from "../services/aiService.js";
-import RewriteService from "../services/rewriteService.js";
-import { createAiRoutes } from "../routes/ai.routes.js";
-import healthRoutes from "../routes/health.routes.js";
+import AIService from "./services/aiService.js";
+import RewriteService from "./services/rewriteService.js";
+import { createAiRoutes } from "./routes/ai.routes.js";
+import healthRoutes from "./routes/health.routes.js";
 
 const app = express();
 
-// 打印环境变量检查
 console.log("🚀 EdgeOne Pages Node Functions 启动中...");
 
 app.use((req, res, next) => {
@@ -26,7 +25,6 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// 速率限制
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
@@ -34,9 +32,8 @@ const limiter = rateLimit({
   legacyHeaders: false,
   skip: (req) => req.path === "/health",
 });
-app.use("/api", limiter);
+app.use(limiter);
 
-// 初始化 AI 服务
 let aiService = null;
 let rewriteService = null;
 try {
@@ -47,8 +44,7 @@ try {
   console.error("❌ AI Services 初始化失败:", error.message);
 }
 
-// 挂载路由
-app.use("/api/ai", createAiRoutes(aiService, rewriteService));
+app.use("/ai", createAiRoutes(aiService, rewriteService));
 app.use("/health", healthRoutes);
 
 console.log("✅ Express 应用已准备就绪");
