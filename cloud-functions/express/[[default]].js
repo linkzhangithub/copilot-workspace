@@ -44,8 +44,8 @@ try {
   console.error("❌ AI Services 初始化失败:", error.message);
 }
 
-app.use("/ai", createAiRoutes(aiService, rewriteService));
-app.use("/health", healthRoutes);
+app.use("/api/ai", createAiRoutes(aiService, rewriteService));
+app.use("/api/health", healthRoutes);
 
 console.log("✅ Express 应用已准备就绪");
 
