@@ -186,3 +186,9 @@ process.on("unhandledRejection", (reason, promise) => {
   // 不退出进程，只记录错误
   // 这样单个请求失败不会影响整个服务
 });
+
+// 云函数 Web 函数入口点（腾讯云 SCF）
+export const handler = async (event, context) => {
+  const tencentCloud = await import('tencentcloud-serverless-nodejs');
+  return tencentCloud.proxyRouter(event, context, app);
+};

@@ -1,0 +1,26 @@
+Resources:
+  default:
+    Type: TencentCloud::Serverless::Namespace
+    ai-writer-api:
+      Type: TencentCloud::Serverless::Function
+      Properties:
+        CodeUri: ./
+        Description: AI 写作助手后端 API 服务
+        Environment:
+          Variables:
+            NODE_ENV: production
+        Handler: server.handler
+        MemorySize: 512
+        Runtime: Nodejs20.13
+        Timeout: 30
+        Type: Web
+        WebParams:
+          Api:
+            ApiId: auto
+            AuthType: NONE
+            Protocols:
+              - http
+              - https
+          IsIntegratedResponse: true
+          IsBase64Encoded: false
+          ScfIsIntegratedResponse: true
