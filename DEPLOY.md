@@ -6,7 +6,7 @@
 write.link2ai.online
 │
 ├── 前端（EdgeOne Pages 静态托管）- Vue 3
-└── 后端（EdgeOne Pages Node Functions）- Node.js Express API
+└── 后端（EdgeOne Pages Node Functions）- API 路由
 ```
 
 **完全不需要云函数！** 前后端都在 EdgeOne Pages 搞定！
@@ -16,7 +16,15 @@ write.link2ai.online
 ## 为什么不需要云函数？
 
 - **你之前的项目**：纯静态，直接部署 EdgeOne Pages
-- **这个项目**：需要后端 API，但 EdgeOne Pages 自带 Node Functions，支持 Express
+- **这个项目**：需要后端 API，但 EdgeOne Pages 自带 Node Functions
+
+---
+
+## 已完成的准备工作
+
+✅ 代码已推送到 GitHub
+✅ 创建了 Node Functions 目录结构
+✅ 配置了部署指南
 
 ---
 
@@ -54,11 +62,9 @@ XUNFEI_API_SECRET=你的讯飞 API Secret
 ALLOWED_ORIGINS=https://write.link2ai.online
 ```
 
-### 5. 配置 Node Functions
+### 5. 启动部署
 
-在项目根目录下创建 `node-functions` 文件夹，EdgeOne Pages 会自动识别并部署。
-
-我们的 Express 应用可以通过 Node Functions 运行。
+点击「开始部署」，等待自动构建完成。
 
 ### 6. 配置自定义域名
 

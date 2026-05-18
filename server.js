@@ -159,28 +159,33 @@ if (isProduction) {
   }
 }
 
-// 启动服务器
-const server = app.listen(PORT, () => {
-  console.log(`服务器运行在 http://localhost:${PORT}`);
-});
-
-// 错误处理
-server.on("error", (error) => {
-  console.error("服务器错误:", error.message);
-});
-
-// 未捕获异常 - 记录错误但不立即退出，让进程管理器决定重启策略
-process.on("uncaughtException", (error) => {
-  console.error("未捕获的异常:", error.stack || error);
-  // 优雅关闭：停止接收新请求
-  server.close(() => {
-    console.log("服务器已关闭");
-    // 延迟退出，给正在处理的请求一些时间
-    setTimeout(() => process.exit(1), 1000);
+// 启动服务器（仅在本地运行时启动，EdgeOne 部署时不需要
+if (
+  process.env.NODE_ENV !== "edgeone" &&
+  process.env.NODE_ENV !== "production"
+) {
+  const server = app.listen(PORT, () => {
+    console.log(`服务器运行在 http://localhost:${PORT}`);
   });
-  // 强制退出超时（5秒）
-  setTimeout(() => process.exit(1), 5000).unref();
-});
+
+  // 错误处理
+  server.on("error", (error) => {
+    console.error("服务器错误:", error.message);
+  });
+
+  // 未捕获异常 - 记录错误但不立即退出，让进程管理器决定重启策略
+  process.on("uncaughtException", (error) => {
+    console.error("未捕获的异常:", error.stack || error);
+    // 优雅关闭：停止接收新请求
+    server.close(() => {
+      console.log("服务器已关闭");
+      // 延迟退出，给正在处理的请求一些时间
+      setTimeout(() => process.exit(1), 1000);
+    });
+    // 强制退出超时（5秒）
+    setTimeout(() => process.exit(1), 5000).unref();
+  });
+}
 
 // 未处理的 Promise 拒绝 - 记录错误但不退出进程
 process.on("unhandledRejection", (reason, promise) => {
