@@ -37,16 +37,14 @@ const isProduction = process.env.NODE_ENV === "production";
 
 // CORS 配置
 const corsOptions = {
-  origin: isProduction
-    ? process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(",")
-      : []
-    : [
+  origin: !isProduction
+    ? [
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:3000",
-      ],
+      ]
+    : true,
   credentials: true,
   optionsSuccessStatus: 200,
 };
@@ -78,47 +76,6 @@ const limiter = rateLimit({
 
 // 应用速率限制到所有 /api 路由
 app.use("/api", limiter);
-
-// API Key 鉴权中间件（仅生产环境）
-const apiKeyAuth = (req, res, next) => {
-  if (!isProduction) {
-    return next();
-  }
-
-  const apiKey = req.headers["x-api-key"];
-
-  if (!apiKey || !process.env.API_KEY) {
-    return res.status(401).json({
-      success: false,
-      error:
-        "API key required. Please provide x-api-key header or apiKey query parameter.",
-    });
-  }
-
-  try {
-    const apiKeyBuffer = Buffer.from(apiKey, "utf8");
-    const envKeyBuffer = Buffer.from(process.env.API_KEY, "utf8");
-
-    if (
-      apiKeyBuffer.length !== envKeyBuffer.length ||
-      !crypto.timingSafeEqual(apiKeyBuffer, envKeyBuffer)
-    ) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid API key.",
-      });
-    }
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      error: "Invalid API key.",
-    });
-  }
-
-  next();
-};
-
-app.use("/api", apiKeyAuth);
 
 // 初始化 AI 服务
 let aiService = null;
