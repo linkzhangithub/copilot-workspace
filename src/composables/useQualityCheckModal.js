@@ -1,4 +1,4 @@
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 
 export const useQualityCheckModal = (options) => {
   const {
@@ -41,6 +41,21 @@ export const useQualityCheckModal = (options) => {
   const visibleSuggestionItems = ref([false, false, false]);
   const suggestions = ref([]);
   const displaySuggestions = ref([]);
+  
+  const isMobile = ref(false);
+
+  const checkIsMobile = () => {
+    isMobile.value = window.innerWidth <= 768;
+  };
+
+  onMounted(() => {
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+  });
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', checkIsMobile);
+  });
 
   const dimensions = [
     { key: "structure", name: "大纲结构" },
@@ -588,5 +603,6 @@ export const useQualityCheckModal = (options) => {
     dimensions,
     visibleQualityItems,
     visibleSuggestionList,
+    isMobile,
   };
 };

@@ -39,6 +39,7 @@ const {
   dimensions,
   visibleQualityItems,
   visibleSuggestionList,
+  isMobile,
 } = useQualityCheckModal({
   projectId: toRef(props, "projectId"),
   projectName: toRef(props, "projectName"),
@@ -66,7 +67,7 @@ defineExpose({
 <template>
   <Teleport to="body">
     <div v-if="showQualityCheck" class="quality-modal-overlay">
-      <div class="quality-modal-content">
+      <div :class="['quality-modal-content', { 'is-mobile': isMobile }]">
         <div class="modal-header">
           <h2>智能文章质检</h2>
           <button class="close-btn" @click="closeQualityCheck">
@@ -117,8 +118,8 @@ defineExpose({
                       </div>
                       <span class="quality-name">{{ item.dim.name }}</span>
                     </div>
-                    <div class="quality-result">
-                      <span class="quality-result-content">{{
+                    <div :class="['quality-result', { 'mobile-full-text': isMobile }]">
+                      <span :class="['quality-result-content', { 'mobile-unclamp': isMobile }]">{{
                         qualityResults[item.dim.key]
                       }}</span>
                     </div>

@@ -360,3 +360,24 @@
   opacity: 0;
   transform: translateY(8px);
 }
+
+/* ===== 移动端适配 - 评价框文字完整显示 ===== */
+.quality-modal-content.is-mobile .quality-result.mobile-full-text {
+  max-height: none !important;
+  min-height: auto !important;
+  height: auto !important;
+  align-items: flex-start !important;
+}
+
+.quality-modal-content.is-mobile .quality-result-content.mobile-unclamp {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  line-height: 1.6 !important;
+  max-height: none !important;
+}
