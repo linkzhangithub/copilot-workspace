@@ -1,5 +1,7 @@
 import { config } from "dotenv";
 import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
@@ -8,6 +10,9 @@ import AIService from "./services/aiService.js";
 import RewriteService from "./services/rewriteService.js";
 import { createAiRoutes } from "./routes/ai.routes.js";
 import healthRoutes from "./routes/health.routes.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 加载环境变量
 const envPath = "./.env";
@@ -130,6 +135,27 @@ try {
 // 挂载路由
 app.use("/api/ai", createAiRoutes(aiService, rewriteService));
 app.use(healthRoutes);
+
+// 生产环境：提供前端静态文件
+if (isProduction) {
+  const distPath = path.join(__dirname, 'dist');
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    
+    // SPA 路由支持：所有非 API 请求返回 index.html
+    app.get('*', (req, res, next) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(distPath, 'index.html'));
+      } else {
+        next();
+      }
+    });
+    
+    console.log('✅ 前端静态文件服务已启用');
+  } else {
+    console.warn('⚠️  dist 目录不存在，请先运行 npm run build');
+  }
+}
 
 // 启动服务器
 const server = app.listen(PORT, () => {

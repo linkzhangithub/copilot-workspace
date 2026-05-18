@@ -37,6 +37,12 @@ dist
 dist-ssr
 *.local
 
+# PM2 logs
+logs/
+*.log
+pm2-error.log
+pm2-out.log
+
 # Trae rules (local only)
 .trae/
 docs/

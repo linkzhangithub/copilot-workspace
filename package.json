@@ -8,7 +8,14 @@
     "server": "node server.js",
     "start": "concurrently \"npm run server\" \"npm run dev\" --names \"server,client\" --prefix-colors \"blue,green\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prod": "NODE_ENV=production node server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop copilot-api",
+    "pm2:restart": "pm2 restart copilot-api",
+    "pm2:logs": "pm2 logs copilot-api",
+    "docker:build": "docker build -t copilot-workspace:latest .",
+    "docker:run": "docker run -d -p 3000:3000 --env-file .env --name copilot-app copilot-workspace:latest"
   },
   "dependencies": {
     "axios": "^1.15.2",
