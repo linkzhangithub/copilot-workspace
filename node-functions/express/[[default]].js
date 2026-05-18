@@ -8,6 +8,14 @@ import healthRoutes from "../routes/health.routes.js";
 
 const app = express();
 
+// 打印环境变量检查
+console.log("🚀 EdgeOne Pages Node Functions 启动中...");
+
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(cors({
   origin: true,
   credentials: true,
@@ -34,12 +42,15 @@ let rewriteService = null;
 try {
   aiService = new AIService();
   rewriteService = new RewriteService();
+  console.log("✅ AI Services 初始化成功");
 } catch (error) {
-  console.error("AI Services 初始化失败:", error.message);
+  console.error("❌ AI Services 初始化失败:", error.message);
 }
 
 // 挂载路由
 app.use("/api/ai", createAiRoutes(aiService, rewriteService));
 app.use("/health", healthRoutes);
+
+console.log("✅ Express 应用已准备就绪");
 
 export default app;
