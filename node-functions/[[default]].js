@@ -1,2 +1,45 @@
-import app from '../server.js';
+import express from "express";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+import AIService from "../services/aiService.js";
+import RewriteService from "../services/rewriteService.js";
+import { createAiRoutes } from "../routes/ai.routes.js";
+import healthRoutes from "../routes/health.routes.js";
+
+const app = express();
+
+app.use(cors({
+  origin: true,
+  credentials: true,
+  optionsSuccessStatus: 200,
+}));
+app.use(express.json({
+  type: ["application/json", "application/*+json"],
+}));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// 速率限制
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === "/health",
+});
+app.use("/api", limiter);
+
+// 初始化 AI 服务
+let aiService = null;
+let rewriteService = null;
+try {
+  aiService = new AIService();
+  rewriteService = new RewriteService();
+} catch (error) {
+  console.error("AI Services 初始化失败:", error.message);
+}
+
+// 挂载路由
+app.use("/api/ai", createAiRoutes(aiService, rewriteService));
+app.use("/health", healthRoutes);
+
 export default app;
